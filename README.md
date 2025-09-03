@@ -37,6 +37,40 @@ This makes PA-QA a reusable "context module" that ensures consistent testing acr
 
 ## 🚀 How to Use This Repository
 
+### Quick Setup for New Projects
+
+1. **Run the Automated Setup Script**
+   ```bash
+   # Clone PA-QA
+   git clone git@github.com:anthonyscolaro/pa-qa.git ~/reference/pa-qa
+   
+   # In your project directory, run the initialization
+   ~/reference/pa-qa/scripts/init-pa-qa.sh
+   ```
+   
+   This script will:
+   - ✅ Install Playwright and dependencies
+   - ✅ Create test directory structure
+   - ✅ Generate configuration files
+   - ✅ Set up GitHub Actions workflow
+   - ⚠️ **Alert you if Vercel protection bypass is needed**
+
+2. **For Vercel Deployments** (Important!)
+   
+   If your app deploys to Vercel, you'll see a prompt to enable Protection Bypass:
+   ```
+   ⚠️ VERCEL DEPLOYMENT PROTECTION SETUP REQUIRED
+   
+   1. Go to Vercel Dashboard → Your Project → Settings → Security
+   2. Enable "Protection Bypass for Automation"
+   3. Add the secret to GitHub:
+      gh secret set VERCEL_AUTOMATION_BYPASS_SECRET --body "your-secret"
+   ```
+   
+   **This is critical** - Without this, E2E tests cannot access your protected deployments!
+   
+   See [docs/testing/deployment-testing.md](docs/testing/deployment-testing.md) for complete guide.
+
 ### As a Reference for New Projects
 
 1. **Browse the Documentation**
