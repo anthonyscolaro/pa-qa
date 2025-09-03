@@ -1,364 +1,255 @@
-# Context Engineering Template
+# PA-QA: Standardized Testing Framework for Project Assistant
 
-A comprehensive template for getting started with Context Engineering - the discipline of engineering context for AI coding assistants so they have the information necessary to get the job done end to end.
+A production-ready E2E testing framework template for web applications. Use this repository as a reference and starting point for implementing comprehensive testing in all Project Assistant client projects.
 
-> **Context Engineering is 10x better than prompt engineering and 100x better than vibe coding.**
+## 🎯 Purpose
 
-## 🔗 Links & Resources
+This repository serves as the **gold standard** for testing practices at Project Assistant. It provides:
+- Pre-configured testing tools and patterns
+- Proven test architecture from real projects
+- Documentation and examples for rapid implementation
+- Consistent quality assurance across all client deliverables
 
-- **📺 YouTube Channel**: [Income Stream Surfers](https://www.youtube.com/c/incomestreamsurfers) - Learn advanced AI automation techniques
-- **🏫 AI Automation School**: [Skool Community](https://www.skool.com/iss-ai-automation-school-6342/about) - Join our AI automation community
-- **🌐 SEO Grove**: [Live Website](https://seogrove.ai/) - See advanced AI automation in action (built with different methods)
+## 🚀 How to Use This Repository
 
-## 🚀 Quick Start
+### As a Reference for New Projects
 
-**For full setup with automatic documentation hooks:** See [SETUP.md](SETUP.md)
+1. **Browse the Documentation**
+   - Start with [docs/index.md](docs/index.md) - Complete documentation hub
+   - Review [docs/setup/quickstart-testing.md](docs/setup/quickstart-testing.md) - 5-minute setup guide
+   - Study [docs/framework/pa-qa-framework.md](docs/framework/pa-qa-framework.md) - Complete framework overview
 
-**For basic template usage:**
+2. **Copy What You Need**
+   ```bash
+   # Clone this repository as a reference
+   git clone git@github.com:anthonyscolaro/pa-qa.git ~/reference/pa-qa
+   
+   # In your project, copy the test structure
+   cp -r ~/reference/pa-qa/docs/setup/quickstart-testing.md your-project/docs/
+   
+   # Copy example configurations (when available)
+   cp ~/reference/pa-qa/examples/playwright.config.ts your-project/
+   ```
+
+3. **Follow the Blog-Poster Pattern**
+   - The framework is based on `~/apps/blog-poster/frontend/tests/`
+   - That project has battle-tested implementations you can copy directly
+   - Use those patterns as your starting point
+
+### For Existing Projects
+
+1. **Assess Current Testing**
+   - Compare your tests against this framework
+   - Identify gaps in coverage or patterns
+   - Plan migration incrementally
+
+2. **Adopt Best Practices**
+   - Implement Page Object Model from our patterns
+   - Add test data factories for dynamic testing
+   - Set up Allure reporting for professional results
+
+3. **Standardize Across Team**
+   - Use this as the team reference
+   - Ensure all developers follow same patterns
+   - Review tests against these standards
+
+## 📁 What This Repository Provides
+
+### Documentation (`/docs`)
+```
+docs/
+├── index.md                     # Documentation hub with all links
+├── framework/
+│   ├── initial.md              # Framework specification
+│   └── pa-qa-framework.md      # Detailed implementation guide
+└── setup/
+    └── quickstart-testing.md   # 5-minute quick start guide
+```
+
+### Testing Stack Components
+- **Playwright** - Modern E2E testing framework
+- **Allure** - Beautiful test reporting
+- **Docker** - Containerized test execution
+- **TypeScript** - Type-safe test development
+- **Mailpit** - Email testing capability
+
+### Test Types Covered
+- ✅ Smoke tests (health checks)
+- ✅ Authentication flows
+- ✅ E2E user journeys
+- ✅ API testing
+- ✅ Visual regression
+- ✅ Performance testing
+- ✅ Security testing
+- ✅ Accessibility (a11y)
+
+## 🏗️ Recommended Implementation Approach
+
+### Phase 1: Foundation (Week 1)
+```bash
+# 1. Copy test structure from blog-poster
+cp -r ~/apps/blog-poster/frontend/tests your-project/tests
+cp ~/apps/blog-poster/frontend/playwright.config.ts your-project/
+
+# 2. Install dependencies
+npm install --save-dev @playwright/test @faker-js/faker allure-playwright
+
+# 3. Create first smoke test
+npx playwright codegen your-app-url.com
+```
+
+### Phase 2: Core Tests (Week 2)
+- Authentication tests
+- Critical user paths
+- Form validations
+- API integrations
+
+### Phase 3: Advanced Testing (Week 3-4)
+- Visual regression
+- Performance benchmarks
+- Security patterns
+- Accessibility compliance
+
+### Phase 4: CI/CD Integration (Week 5)
+- GitHub Actions workflow
+- Docker containerization
+- Automated reporting
+
+## 📊 Success Metrics
+
+Use these targets for your projects:
+
+| Metric | Target | Why It Matters |
+|--------|--------|----------------|
+| Test Execution Time | < 10 min | Fast feedback loop |
+| Test Reliability | > 95% | Trust in results |
+| Code Coverage | > 80% | Confidence in changes |
+| Cross-Browser Pass | 100% | Universal compatibility |
+| Mobile Coverage | > 90% | Mobile-first world |
+
+## 🛠️ Tools & Patterns
+
+### Page Object Model
+```typescript
+// Pattern to follow for all page objects
+export class LoginPage extends BasePage {
+  async login(email: string, password: string) {
+    await this.fill('[data-testid="email"]', email);
+    await this.fill('[data-testid="password"]', password);
+    await this.click('[data-testid="submit"]');
+  }
+}
+```
+
+### Test Data Factories
+```typescript
+// Pattern for generating test data
+export const createTestUser = () => ({
+  email: faker.internet.email(),
+  password: 'SecurePass123!',
+  name: faker.person.fullName()
+});
+```
+
+### Docker Testing
+```yaml
+# Standard docker-compose pattern
+services:
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.40.0
+    volumes:
+      - ./tests:/tests
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - "8025:8025"
+```
+
+## 🔗 Key Resources
+
+### Internal References
+- **Blog-Poster Tests**: `~/apps/blog-poster/frontend/tests/` - Production implementation
+- **LocalDocs**: `~/apps/localdocs/data/` - Testing documentation
+- **This Repository**: Framework documentation and patterns
+
+### External Documentation
+- [Playwright Documentation](https://playwright.dev)
+- [Allure Framework](https://allure.qatools.ru)
+- [Testing Best Practices](https://testingjavascript.com)
+
+## 💡 Quick Commands Reference
 
 ```bash
-# 1. Clone this template
-git clone https://github.com/IncomeStreamSurfer/context-engineering-intro.git
-cd context-engineering-intro
+# Install Playwright
+npm init playwright@latest
 
-# 2. Set up your project rules (optional - template provided)
-# Edit CLAUDE.md to add your project-specific guidelines
+# Run tests
+npx playwright test              # Run all tests
+npx playwright test --ui         # Interactive UI mode
+npx playwright test --debug      # Debug mode
+npx playwright show-report       # View HTML report
 
-# 3. Add examples (highly recommended)
-# Place relevant code examples in the examples/ folder
+# Generate tests
+npx playwright codegen site.com  # Record actions
 
-# 4. Create your initial feature request
-# Edit INITIAL.md with your feature requirements
+# Update browsers
+npx playwright install           # Install browsers
 
-# 5. Generate a comprehensive PRP (Product Requirements Prompt)
-# In Claude Code, run:
-/generate-prp INITIAL.md
-
-# 6. Execute the PRP to implement your feature
-# In Claude Code, run:
-/execute-prp PRPs/your-feature-name.md
+# Run in Docker
+docker-compose up playwright     # Run containerized
 ```
 
-## 📚 Table of Contents
-
-- [What is Context Engineering?](#what-is-context-engineering)
-- [Template Structure](#template-structure)
-- [Step-by-Step Guide](#step-by-step-guide)
-- [Writing Effective INITIAL.md Files](#writing-effective-initialmd-files)
-- [The PRP Workflow](#the-prp-workflow)
-- [Using Examples Effectively](#using-examples-effectively)
-- [Best Practices](#best-practices)
-
-## What is Context Engineering?
-
-Context Engineering represents a paradigm shift from traditional prompt engineering:
-
-### Prompt Engineering vs Context Engineering
-
-**Prompt Engineering:**
-- Focuses on clever wording and specific phrasing
-- Limited to how you phrase a task
-- Like giving someone a sticky note
-
-**Context Engineering:**
-- A complete system for providing comprehensive context
-- Includes documentation, examples, rules, patterns, and validation
-- Like writing a full screenplay with all the details
-
-### Why Context Engineering Matters
-
-1. **Reduces AI Failures**: Most agent failures aren't model failures - they're context failures
-2. **Ensures Consistency**: AI follows your project patterns and conventions
-3. **Enables Complex Features**: AI can handle multi-step implementations with proper context
-4. **Self-Correcting**: Validation loops allow AI to fix its own mistakes
-
-## Template Structure
-
-```
-context-engineering-intro/
-├── .claude/
-│   ├── commands/
-│   │   ├── generate-prp.md    # Generates comprehensive PRPs
-│   │   └── execute-prp.md     # Executes PRPs to implement features
-│   └── settings.local.json    # Claude Code permissions
-├── PRPs/
-│   ├── templates/
-│   │   └── prp_base.md       # Base template for PRPs
-│   └── EXAMPLE_multi_agent_prp.md  # Example of a complete PRP
-├── examples/                  # Your code examples (critical!)
-├── CLAUDE.md                 # Global rules for AI assistant
-├── INITIAL.md               # Template for feature requests
-├── INITIAL_EXAMPLE.md       # Example feature request
-└── README.md                # This file
-```
-
-This template doesn't focus on RAG and tools with context engineering because I have a LOT more in store for that soon. ;)
-
-## Step-by-Step Guide
-
-### 1. Set Up Global Rules (CLAUDE.md)
-
-The `CLAUDE.md` file contains project-wide rules that the AI assistant will follow in every conversation. The template includes:
-
-- **Project awareness**: Reading planning docs, checking tasks
-- **Code structure**: File size limits, module organization
-- **Testing requirements**: Unit test patterns, coverage expectations
-- **Style conventions**: Language preferences, formatting rules
-- **Documentation standards**: Docstring formats, commenting practices
-
-**You can use the provided template as-is or customize it for your project.**
-
-### 2. Create Your Initial Feature Request
-
-Edit `INITIAL.md` to describe what you want to build:
-
-```markdown
-## FEATURE:
-[Describe what you want to build - be specific about functionality and requirements]
-
-## EXAMPLES:
-[List any example files in the examples/ folder and explain how they should be used]
-
-## DOCUMENTATION:
-[Include links to relevant documentation, APIs, or MCP server resources]
-
-## OTHER CONSIDERATIONS:
-[Mention any gotchas, specific requirements, or things AI assistants commonly miss]
-```
-
-**See `INITIAL_EXAMPLE.md` for a complete example.**
-
-### 3. Generate the PRP
-
-PRPs (Product Requirements Prompts) are comprehensive implementation blueprints that include:
-
-- Complete context and documentation
-- Implementation steps with validation
-- Error handling patterns
-- Test requirements
-
-They are similar to PRDs (Product Requirements Documents) but are crafted more specifically to instruct an AI coding assistant.
-
-Run in Claude Code:
-```bash
-/generate-prp INITIAL.md
-```
-
-**Note:** The slash commands are custom commands defined in `.claude/commands/`. You can view their implementation:
-- `.claude/commands/generate-prp.md` - See how it researches and creates PRPs
-- `.claude/commands/execute-prp.md` - See how it implements features from PRPs
-
-The `$ARGUMENTS` variable in these commands receives whatever you pass after the command name (e.g., `INITIAL.md` or `PRPs/your-feature.md`).
-
-This command will:
-1. Read your feature request
-2. Research the codebase for patterns
-3. Search for relevant documentation
-4. Create a comprehensive PRP in `PRPs/your-feature-name.md`
-
-### 4. Execute the PRP
-
-Once generated, execute the PRP to implement your feature:
-
-```bash
-/execute-prp PRPs/your-feature-name.md
-```
-
-The AI coding assistant will:
-1. Read all context from the PRP
-2. Create a detailed implementation plan
-3. Execute each step with validation
-4. Run tests and fix any issues
-5. Ensure all success criteria are met
-
-## Writing Effective INITIAL.md Files
-
-### Key Sections Explained
-
-**FEATURE**: Be specific and comprehensive
-- ❌ "Build a web scraper"
-- ✅ "Build an async web scraper using BeautifulSoup that extracts product data from e-commerce sites, handles rate limiting, and stores results in PostgreSQL"
-
-**EXAMPLES**: Leverage the examples/ folder
-- Place relevant code patterns in `examples/`
-- Reference specific files and patterns to follow
-- Explain what aspects should be mimicked
-
-**DOCUMENTATION**: Include all relevant resources
-- API documentation URLs
-- Library guides
-- MCP server documentation
-- Database schemas
-
-**OTHER CONSIDERATIONS**: Capture important details
-- Authentication requirements
-- Rate limits or quotas
-- Common pitfalls
-- Performance requirements
-
-## The PRP Workflow
-
-### How /generate-prp Works
-
-The command follows this process:
-
-1. **Research Phase**
-   - Analyzes your codebase for patterns
-   - Searches for similar implementations
-   - Identifies conventions to follow
-
-2. **Documentation Gathering**
-   - Fetches relevant API docs
-   - Includes library documentation
-   - Adds gotchas and quirks
-
-3. **Blueprint Creation**
-   - Creates step-by-step implementation plan
-   - Includes validation gates
-   - Adds test requirements
-
-4. **Quality Check**
-   - Scores confidence level (1-10)
-   - Ensures all context is included
-
-### How /execute-prp Works
-
-1. **Load Context**: Reads the entire PRP
-2. **Plan**: Creates detailed task list using TodoWrite
-3. **Execute**: Implements each component
-4. **Validate**: Runs tests and linting
-5. **Iterate**: Fixes any issues found
-6. **Complete**: Ensures all requirements met
-
-See `PRPs/EXAMPLE_multi_agent_prp.md` for a complete example of what gets generated.
-
-## Using Examples Effectively
-
-The `examples/` folder is **critical** for success. AI coding assistants perform much better when they can see patterns to follow.
-
-### What to Include in Examples
-
-1. **Code Structure Patterns**
-   - How you organize modules
-   - Import conventions
-   - Class/function patterns
-
-2. **Testing Patterns**
-   - Test file structure
-   - Mocking approaches
-   - Assertion styles
-
-3. **Integration Patterns**
-   - API client implementations
-   - Database connections
-   - Authentication flows
-
-4. **CLI Patterns**
-   - Argument parsing
-   - Output formatting
-   - Error handling
-
-### Example Structure
-
-```
-examples/
-├── README.md           # Explains what each example demonstrates
-├── cli.py             # CLI implementation pattern
-├── agent/             # Agent architecture patterns
-│   ├── agent.py      # Agent creation pattern
-│   ├── tools.py      # Tool implementation pattern
-│   └── providers.py  # Multi-provider pattern
-└── tests/            # Testing patterns
-    ├── test_agent.py # Unit test patterns
-    └── conftest.py   # Pytest configuration
-```
-
-## Best Practices
-
-### 1. Be Explicit in INITIAL.md
-- Don't assume the AI knows your preferences
-- Include specific requirements and constraints
-- Reference examples liberally
-
-### 2. Provide Comprehensive Examples
-- More examples = better implementations
-- Show both what to do AND what not to do
-- Include error handling patterns
-
-### 3. Use Validation Gates
-- PRPs include test commands that must pass
-- AI will iterate until all validations succeed
-- This ensures working code on first try
-
-### 4. Leverage Documentation
-- Include official API docs
-- Add MCP server resources
-- Reference specific documentation sections
-
-### 5. Customize CLAUDE.md
-- Add your conventions
-- Include project-specific rules
-- Define coding standards
-
-## 🎯 Advanced PRP Method - Multi-Agent Research Approach
-
-This template demonstrates an advanced PRP creation method using multiple parallel research agents for comprehensive documentation gathering.
-
-### See Advanced AI Automation Examples
-- **SEO Grove**: https://seogrove.ai/ - Example of advanced AI automation (built with different methods)
-- **YouTube Channel**: https://www.youtube.com/c/incomestreamsurfers - Learn more about AI automation methodologies
-- **AI Automation School**: https://www.skool.com/iss-ai-automation-school-6342/about - Join our community
-
-### Advanced PRP Creation Process
-
-#### Prompt 1: Initialize Research Framework
-```
-read my incredibly specific instructions about how to create a prp document then summarise them, also store how to do a jina scrapein order to create a llm.txt in your memory
-
-If a page 404s or does not scrape properly, scrape it again
-
-Do not use Jina to scrape CSS of the design site.
-
-All SEPARATE pages must be stored in /research/[technology]/ directories with individual .md files.
-
-curl
-  "https://r.jina.ai/https://platform.openai.com/docs/" \
-    -H "Authorization: Bearer jina_033257e7cdf14fd3b948578e2d34986bNtfCCkjHt7_j1Bkp5Kx521rDs2Eb"
-```
-
-#### Prompt 2: Generate PRP with Parallel Research
-```
-/generate-prp initial.md
-```
-
-**Wait until it gets to the research phase, then press escape and say:**
-
-```
-can you spin up multiple research agents and do this all at the same time
-```
-
-This approach enables:
-- **Parallel Documentation Scraping**: 6+ agents simultaneously research different technologies
-- **Comprehensive Coverage**: 30-100+ pages of official documentation scraped and organized
-- **Technology-Specific Organization**: Each technology gets its own `/research/[tech]/` directory
-- **Production-Ready PRPs**: Complete implementation blueprints with real-world examples
-
-### Research Directory Structure
-```
-research/
-├── pydantic-ai/      # 22+ documentation pages
-├── openai/           # 20+ API documentation pages  
-├── anthropic/        # 18+ Claude documentation pages
-├── jina/             # 12+ scraping API pages
-├── shopify/          # 18+ GraphQL/REST API pages
-└── seo-apis/         # 24+ Search Console/Ahrefs pages
-```
-
-This multi-agent research approach results in PRPs with 9/10 confidence scores for one-pass implementation success.
-
-## Resources
-
-- [Claude Code Documentation](https://docs.anthropic.com/en/docs/claude-code)
-- [Context Engineering Best Practices](https://www.philschmid.de/context-engineering)
-- [SEO Grove - Live Implementation](https://seogrove.ai/)
-- [Income Stream Surfers - YouTube Channel](https://www.youtube.com/c/incomestreamsurfers)
+## 🎯 Project Checklist
+
+Use this checklist for every new project:
+
+- [ ] Copy test structure from blog-poster or this repo
+- [ ] Set up Playwright with TypeScript
+- [ ] Create smoke tests for critical paths
+- [ ] Implement Page Object Model
+- [ ] Add test data factories
+- [ ] Configure multiple browsers
+- [ ] Set up Allure reporting
+- [ ] Create Docker test environment
+- [ ] Add CI/CD pipeline
+- [ ] Document test patterns
+
+## 🤝 Contributing to This Framework
+
+1. **Learn from Projects**: Implement in real client work
+2. **Document Patterns**: Add new discoveries here
+3. **Share Knowledge**: Update team on improvements
+4. **Stay Current**: Keep tools and practices updated
+
+## 📈 Why This Matters
+
+### For Project Assistant
+- **Consistency**: Same high quality across all projects
+- **Efficiency**: Reuse patterns instead of reinventing
+- **Professionalism**: Impressive test reports for clients
+- **Reliability**: Catch bugs before clients do
+
+### For Clients
+- **Quality Assurance**: Comprehensive test coverage
+- **Transparency**: Beautiful test reports
+- **Confidence**: See tests passing before deployment
+- **Value**: Professional testing included
+
+### For Developers
+- **Speed**: Start testing in minutes, not days
+- **Learning**: Clear patterns to follow
+- **Debugging**: Better tools for finding issues
+- **Pride**: Ship quality code with confidence
+
+## 🚦 Getting Started Now
+
+1. **Read the Quick Start**: [docs/setup/quickstart-testing.md](docs/setup/quickstart-testing.md)
+2. **Review Blog-Poster**: See real implementation at `~/apps/blog-poster/frontend/tests/`
+3. **Copy and Customize**: Use patterns for your project
+4. **Ask Questions**: This is a living framework - contribute improvements!
+
+---
+
+**Remember**: Good testing isn't about perfection, it's about confidence. Start with smoke tests, add critical paths, then expand coverage over time.
+
+*This framework is maintained by Project Assistant's development team. For questions or improvements, please contribute back to this repository.*
