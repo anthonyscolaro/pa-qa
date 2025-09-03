@@ -67,10 +67,10 @@ docs/
 ```
 
 ### Testing Stack Components
+- **TypeScript** - All tests written in TypeScript for type safety
 - **Playwright** - Modern E2E testing framework
 - **Allure** - Beautiful test reporting
 - **Docker** - Containerized test execution
-- **TypeScript** - Type-safe test development
 - **Mailpit** - Email testing capability
 
 ### Test Types Covered
@@ -90,12 +90,13 @@ docs/
 # 1. Copy test structure from blog-poster
 cp -r ~/apps/blog-poster/frontend/tests your-project/tests
 cp ~/apps/blog-poster/frontend/playwright.config.ts your-project/
+cp ~/apps/blog-poster/frontend/tsconfig.json your-project/  # TypeScript config
 
-# 2. Install dependencies
-npm install --save-dev @playwright/test @faker-js/faker allure-playwright
+# 2. Install dependencies (TypeScript + Playwright)
+npm install --save-dev @playwright/test @faker-js/faker allure-playwright typescript @types/node
 
-# 3. Create first smoke test
-npx playwright codegen your-app-url.com
+# 3. Create first smoke test (TypeScript)
+npx playwright codegen your-app-url.com  # Generates TypeScript by default
 ```
 
 ### Phase 2: Core Tests (Week 2)
@@ -127,13 +128,27 @@ Use these targets for your projects:
 | Cross-Browser Pass | 100% | Universal compatibility |
 | Mobile Coverage | > 90% | Mobile-first world |
 
-## 🛠️ Tools & Patterns
+## 🛠️ Language & Patterns
 
-### Page Object Model
+### Language: TypeScript
+All tests should be written in **TypeScript** for:
+- **Type Safety**: Catch errors at compile time
+- **IntelliSense**: Better IDE support and autocomplete
+- **Refactoring**: Safer code changes
+- **Documentation**: Types serve as inline documentation
+- **Industry Standard**: Most modern test frameworks use TypeScript
+
+### Page Object Model (TypeScript)
 ```typescript
-// Pattern to follow for all page objects
+// tests/helpers/page-objects/login.page.ts
+import { Page } from '@playwright/test';
+
 export class LoginPage extends BasePage {
-  async login(email: string, password: string) {
+  constructor(private page: Page) {
+    super(page);
+  }
+
+  async login(email: string, password: string): Promise<void> {
     await this.fill('[data-testid="email"]', email);
     await this.fill('[data-testid="password"]', password);
     await this.click('[data-testid="submit"]');
@@ -141,10 +156,18 @@ export class LoginPage extends BasePage {
 }
 ```
 
-### Test Data Factories
+### Test Data Factories (TypeScript)
 ```typescript
-// Pattern for generating test data
-export const createTestUser = () => ({
+// tests/helpers/factories/user.factory.ts
+import { faker } from '@faker-js/faker';
+
+interface TestUser {
+  email: string;
+  password: string;
+  name: string;
+}
+
+export const createTestUser = (): TestUser => ({
   email: faker.internet.email(),
   password: 'SecurePass123!',
   name: faker.person.fullName()
@@ -204,15 +227,16 @@ docker-compose up playwright     # Run containerized
 Use this checklist for every new project:
 
 - [ ] Copy test structure from blog-poster or this repo
-- [ ] Set up Playwright with TypeScript
-- [ ] Create smoke tests for critical paths
-- [ ] Implement Page Object Model
-- [ ] Add test data factories
+- [ ] Set up TypeScript configuration (tsconfig.json)
+- [ ] Install Playwright with TypeScript support
+- [ ] Create smoke tests for critical paths (.spec.ts files)
+- [ ] Implement Page Object Model with TypeScript classes
+- [ ] Add test data factories with proper typing
 - [ ] Configure multiple browsers
 - [ ] Set up Allure reporting
 - [ ] Create Docker test environment
 - [ ] Add CI/CD pipeline
-- [ ] Document test patterns
+- [ ] Document test patterns with type definitions
 
 ## 🤝 Contributing to This Framework
 
