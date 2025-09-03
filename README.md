@@ -227,16 +227,15 @@ docker-compose up playwright     # Run containerized
 Use this checklist for every new project:
 
 - [ ] Copy test structure from blog-poster or this repo
-- [ ] Set up TypeScript configuration (tsconfig.json)
-- [ ] Install Playwright with TypeScript support
-- [ ] Create smoke tests for critical paths (.spec.ts files)
-- [ ] Implement Page Object Model with TypeScript classes
-- [ ] Add test data factories with proper typing
+- [ ] Set up Playwright with TypeScript
+- [ ] Create smoke tests for critical paths
+- [ ] Implement Page Object Model
+- [ ] Add test data factories
 - [ ] Configure multiple browsers
 - [ ] Set up Allure reporting
 - [ ] Create Docker test environment
 - [ ] Add CI/CD pipeline
-- [ ] Document test patterns with type definitions
+- [ ] Document test patterns
 
 ## 🤝 Contributing to This Framework
 
