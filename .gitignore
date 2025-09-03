@@ -1,0 +1,71 @@
+# Python
+venv
+venv_linux
+__pycache__
+.ruff_cache
+.pytest_cache
+
+# Environment files
+.env
+.env.local
+.env.production
+
+# Node modules
+backend/node_modules/
+frontend/node_modules/
+node_modules/
+
+# Docker volumes and data
+backend/data/
+mongodb_data/
+logs/
+
+# Backend build files
+backend/dist/
+backend/build/
+
+# Frontend build files
+frontend/dist/
+frontend/build/
+
+# Docker compose overrides
+docker-compose.override.yml
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+backend/coverage/
+frontend/coverage/
+*.test.js
+test-results/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# AI/LLM specific ignores
+research/scraped_docs/
+research/temp/
+
+# Legacy files
+dontlookinhere/
+php-agentic-framework/
+
+# Exclude actual implementation but keep examples
+backend/
+frontend/
+docker-compose.yml
+nginx.conf
+test-system.sh
+
+# Keep example files - these override the above exclusions
+!PRPs/ai-powered-crm-system.md
