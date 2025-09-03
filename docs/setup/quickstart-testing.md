@@ -67,6 +67,7 @@ npx playwright test tests/e2e/smoke.spec.ts
 - [ ] Test artifact storage
 - [ ] Failure notifications
 - [ ] Automated report deployment
+- [ ] **Vercel Protection Bypass** (see [deployment-testing.md](../testing/deployment-testing.md))
 
 ## 🎯 Example Test Patterns
 
