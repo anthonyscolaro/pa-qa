@@ -1,79 +1,170 @@
-### 🔄 Project Awareness & Context & Research
-- **Documentation is a source of truth** - Your knowledge is out of date, I will always give you the latest documentation before writing any files that use third party API's - that information was freshsly scraped and you should NOT use your own knowledge, but rather use the documentation as a source of absolute truth.
-- **Docker & Selftesting** - You must use Docker and you must do unit tests so when I open up the dashboard to use, it just works. I don't have to worry about fixing anything. You can use Docker with Curl, or just by running test scripts etc. Everything must be confirmed to work perfectly through Docker, you have access to the Docker CLI.
-- **check all jina scrapes** - some Jina scrapes fail and have very little content in them - if this happens, try scraping again until it works and you get the actual content of the file.
-- **Always read `PLANNING.md`** at the start of a new conversation to understand the project's architecture, goals, style, and constraints.
-- **Check `TASK.md`** before starting a new task. If the task isn’t listed, add it with a brief description and today's date.
-- **Use consistent naming conventions, file structure, and architecture patterns** as described in `PLANNING.md`.
-- **Use Docker commands** whenever executing Python commands, including for unit tests.
-- **Set up Docker** Setup a docker instance for development and be aware of the output of Docker so that you can self improve your code and testing.
-- **Agents** - Agents should be designed as intelligent human beings by giving them decision making, ability to do detailed research using Jina, and not just your basic propmts that generate absolute shit. This is absolutely vital. They should not use programmatic solutions to problems - but rather use reasoning and AI decision making to solve all problems. Every agent should have at least 5 prompts in an agentic workflow to create truly unique content. Each agent should also have the context of what its previous iterations have made.
-- **Stick to OFFICIAL DOCUMENTATION PAGES ONLY** - For all research ONLY use official documentation pages. Use a r.jina scrape on the documentation page given to you in intitial.md and then create a llm.txt from it in your memory, then choose the exact pages that make sense for this project and scrape them using your internal scraping tool.
-**Create full production ready code**
-- **Ultrathink** - Use Ultrathink capabilities before every stage of the PRP generation and code generation, what informatoin to put into PRD etc.
-- **LLM Models** - Always look for the models page from the documentation links mentioned below and find the model that is mentioned in the initial.md - do not change models, find the exact model name to use in the code.
-- **Always scrape around 30-100 pages in total when doing research** - If a page 404s or does not contain correct content, try to scrape again and find the actual page/content. Put the output of each SUCCESFUL Jina scrape into a new directory with the name of the technology researched, then inside it .md or .txt files of each output
-- **Refer to /research/ directory** - Before implementing any feature that uses something that requires documentation, refer to the relevant directory inside /research/ directory and use the .md files to ensure you're coding with great accuracy, never assume knowledge of a third party API, instead always use the documentation examples which are completely up to date.
-- **Take my tech as sacred truth, for example if I say a model name then research that model name for LLM usage - don't assume from your own knowledge at any point** 
-- **For Maximum efficiency, whenever you need to perform multiple independent operations, such as research, invoke all relevant tools simultaneously, rather that sequentially.**
+# PA-QA Project Instructions
 
-### 🧱 Code Structure & Modularity
-- **Never create a file longer than 500 lines of code.** If a file approaches this limit, refactor by splitting it into modules or helper files.
-- **When creating AI prompts do not hardcode examples but make everything dynamic or based off the context of what the prompt is for**
-- **Always refer to the specific Phase document you are on** - If you are on phase 1, use phase-1.md, if you are on phase 2, use phase-2.md, if you are on phase 3, use phase-3.md
-- **Agents should be designed as intelligent human beings** by giving them decision making, ability to do detailed research using Jina, and not just your basic propmts that generate absolute shit. This is absolutely vital.
-- **Organize code into clearly separated modules**, grouped by feature or responsibility.
-  For agents this looks like:
-    - `agent.py` - Main agent definition and execution logic 
-    - `tools.py` - Tool functions used by the agent 
-    - `prompts.py` - System prompts
-- **Use clear, consistent imports** (prefer relative imports within packages).
-- **Use clear, consistent imports** (prefer relative imports within packages).
-- **Use python_dotenv and load_env()** for environment variables.
+## Project Purpose
+This repository serves as the central testing and quality assurance reference for our web development agency. It contains templates, configurations, and best practices that should be used across all client projects to ensure consistent, high-quality testing.
 
-### 🧪 Testing & Reliability
-- **Always create Pytest unit tests for new features** (functions, classes, routes, etc).
-- **After updating any logic**, check whether existing unit tests need to be updated. If so, do it.
-- **Tests should live in a `/tests` folder** mirroring the main app structure.
-  - Include at least:
-    - 1 test for expected use
-    - 1 edge case
-    - 1 failure case
+## Key Objectives
+1. **Standardize Testing** - Provide consistent testing templates for all project types
+2. **Share Resources** - Centralize reusable testing utilities and configurations
+3. **Document Best Practices** - Maintain up-to-date testing guidelines and patterns
+4. **Enable Rapid Setup** - Allow developers to quickly set up comprehensive testing for new projects
 
-### ✅ Task Completion
-- **Mark completed tasks in `TASK.md`** immediately after finishing them.
-- Add new sub-tasks or TODOs discovered during development to `TASK.md` under a “Discovered During Work” section.
+## Directory Structure Guidelines
 
-### 📎 Style & Conventions
-- **Use Python** as the primary language.
-- **Follow PEP8**, use type hints, and format with `black`.
-- **Use `pydantic` for data validation**.
-- Use `FastAPI` for APIs and `SQLAlchemy` or `SQLModel` for ORM if applicable.
-- Write **docstrings for every function** using the Google style:
-  ```python
-  def example():
-      """
-      Brief summary.
+### `/project-types/`
+- Each subdirectory represents a specific project type (web-apps, wordpress, api-services, etc.)
+- Templates should be complete and ready to copy into new projects
+- Include example tests that demonstrate best practices
+- Maintain framework-specific configurations (React vs Vue, FastAPI vs Express)
 
-      Args:
-          param1 (type): Description.
+### `/shared/`
+- Only add truly reusable components that work across multiple project types
+- Keep utilities generic and well-documented
+- Version configurations appropriately for different tool versions
+- Maintain backward compatibility when updating shared resources
 
-      Returns:
-          type: Description.
-      """
-  ```
+### `/docs/`
+- Keep documentation concise and actionable
+- Include real examples from the blog-poster reference
+- Update guides when new patterns are discovered
+- Link to official documentation for tools
 
-### 📚 Documentation & Explainability
-- **Update `README.md`** when new features are added, dependencies change, or setup steps are modified.
-- **Comment non-obvious code** and ensure everything is understandable to a mid-level developer.
-- When writing complex logic, **add an inline `# Reason:` comment** explaining the why, not just the what.
+## Testing Standards
 
-### 🧠 AI Behavior Rules
-- **Never assume missing context. Ask questions if uncertain.**
-- **Never hallucinate libraries or functions** – only use known, verified Python packages.
-- **Always confirm file paths and module names** exist before referencing them in code or tests.
-- **Never delete or overwrite existing code** unless explicitly instructed to or if part of a task from `TASK.md`.
+### Required Testing Levels
+1. **Unit Tests** - Minimum 70% code coverage for business logic
+2. **Integration Tests** - API endpoints, database operations, third-party services
+3. **E2E Tests** - Critical user paths and workflows
+4. **Performance Tests** - For high-traffic or resource-intensive features
+5. **Accessibility Tests** - WCAG 2.1 AA compliance
 
-### Design
+### Testing Tools by Language
 
-- Stick to the design system inside designsystem.md Designsystem.md - must be adhered to at all times for building any new features.
+#### JavaScript/TypeScript
+- **Unit/Component**: Jest, Vitest, React Testing Library
+- **E2E**: Playwright (primary), Cypress (alternative)
+- **Performance**: Lighthouse CI, WebPageTest
+- **Accessibility**: axe-core, Pa11y
+
+#### Python
+- **Unit/Integration**: Pytest with pytest-asyncio
+- **Mocking**: unittest.mock, pytest-mock
+- **Coverage**: pytest-cov
+- **Performance**: Locust, pytest-benchmark
+
+#### PHP/WordPress
+- **Unit**: PHPUnit
+- **Integration**: WP-CLI tests, WordPress Test Suite
+- **Code Quality**: PHP_CodeSniffer, PHPStan
+- **Database**: Database transactions, fixtures
+
+## Allure Reporting Integration
+
+All projects must integrate with our centralized Allure dashboard:
+- **URL**: `https://allure.projectassistant.ai`
+- **Upload Script**: Use `shared/allure-config/upload-results.sh`
+- **Project Naming**: Use kebab-case (e.g., `client-name-project-type`)
+- **History**: Maintain last 30 test runs per project
+
+## Docker-First Approach
+
+All testing must be executable in Docker containers:
+- **Consistency**: Same environment locally and in CI/CD
+- **Isolation**: No pollution between test runs
+- **Portability**: Tests run on any machine with Docker
+- **Templates**: Use configurations from `shared/docker-templates/testing/`
+
+## CI/CD Integration
+
+### GitHub Actions (Primary)
+- Use templates from `shared/ci-cd-templates/github-actions/`
+- Run tests in parallel when possible
+- Upload results to Allure on every push to main
+- Cache dependencies appropriately
+
+### Bitbucket Pipelines
+- Use templates from `shared/ci-cd-templates/bitbucket/`
+- Configure for client projects still on Bitbucket
+- Ensure compatibility with Docker-in-Docker
+
+## Adding New Templates
+
+When adding templates for new frameworks or project types:
+
+1. **Research**: Study best practices from official documentation
+2. **Reference Implementation**: Check blog-poster for patterns
+3. **Create Structure**:
+   ```
+   project-types/[type]/[framework]/
+   ├── tests/
+   │   ├── unit/
+   │   ├── integration/
+   │   ├── e2e/
+   │   └── fixtures/
+   ├── configs/
+   │   ├── jest.config.js
+   │   ├── playwright.config.ts
+   │   └── .eslintrc.js
+   ├── docker/
+   │   ├── Dockerfile.test
+   │   └── docker-compose.test.yml
+   └── README.md
+   ```
+4. **Document**: Add setup instructions and examples
+5. **Test**: Verify templates work in a fresh project
+6. **Share**: Move reusable parts to `/shared/`
+
+## Quality Checklist
+
+Before marking any testing template as complete:
+- [ ] Includes unit test examples
+- [ ] Includes integration test examples
+- [ ] Includes E2E test examples
+- [ ] Has Docker configuration
+- [ ] Has CI/CD pipeline template
+- [ ] Integrates with Allure reporting
+- [ ] Includes linting configuration
+- [ ] Has clear documentation
+- [ ] Contains working examples
+- [ ] Tested in isolation
+
+## Maintenance
+
+### Weekly Tasks
+- Review and update dependencies in shared configurations
+- Check for new versions of testing tools
+- Update documentation based on team feedback
+
+### Monthly Tasks
+- Audit Allure dashboard for stale projects
+- Review and optimize CI/CD pipelines
+- Update best practices based on industry changes
+
+### Quarterly Tasks
+- Major version updates for testing frameworks
+- Refactor shared utilities based on usage patterns
+- Team training on new testing techniques
+
+## Support Resources
+
+### Internal
+- Blog-poster reference: `blog-poster-reference/` (symlink)
+- Team Slack: #qa-testing channel
+- Wiki: Internal testing playbook
+
+### External
+- [Playwright Docs](https://playwright.dev/docs/intro)
+- [Jest Documentation](https://jestjs.io/docs/getting-started)
+- [Pytest Documentation](https://docs.pytest.org/)
+- [PHPUnit Documentation](https://phpunit.de/documentation.html)
+- [Allure Documentation](https://docs.qameta.io/allure/)
+
+## Version History
+- **v1.0.0** (Sept 2025) - Initial framework setup with blog-poster reference
+- Templates for React, WordPress, FastAPI
+- Allure dashboard integration
+- Docker-first testing approach
+
+---
+
+**Remember**: The goal is to make testing setup so easy that there's no excuse not to have comprehensive tests in every project!
