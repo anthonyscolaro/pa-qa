@@ -1,7 +1,10 @@
-# PA-QA Project Instructions
+# PA-QA Project Instructions - Multi-Agent Testing Framework
 
 ## Project Purpose
-This repository serves as the central testing and quality assurance reference for our web development agency. It contains templates, configurations, and best practices that should be used across all client projects to ensure consistent, high-quality testing.
+This repository serves as the central testing and quality assurance reference for our web development agency, powered by multi-agent workflows for rapid test suite generation. It contains templates, configurations, and best practices that should be used across all client projects to ensure consistent, high-quality testing.
+
+## 🤖 Multi-Agent Workflow Approach
+This project uses parallel agent execution for maximum efficiency. When generating test suites or templates, multiple specialized agents work simultaneously on different aspects (unit tests, E2E tests, CI/CD setup, etc.). See `memory/multi-agent-workflow.md` for patterns.
 
 ## Key Objectives
 1. **Standardize Testing** - Provide consistent testing templates for all project types
@@ -87,13 +90,14 @@ All testing must be executable in Docker containers:
 - Configure for client projects still on Bitbucket
 - Ensure compatibility with Docker-in-Docker
 
-## Adding New Templates
+## Adding New Templates (Multi-Agent Approach)
 
-When adding templates for new frameworks or project types:
+When adding templates for new frameworks or project types, use the multi-agent workflow:
 
-1. **Research**: Study best practices from official documentation
-2. **Reference Implementation**: Check blog-poster for patterns
-3. **Create Structure**:
+1. **Launch Research Agents**: Spawn parallel agents to research best practices
+2. **Generate Test Suites**: Multiple agents create different test types simultaneously
+3. **Validate Quality**: Validation agents ensure coverage and standards
+4. **Create Structure**:
    ```
    project-types/[type]/[framework]/
    ├── tests/
@@ -159,12 +163,41 @@ Before marking any testing template as complete:
 - [PHPUnit Documentation](https://phpunit.de/documentation.html)
 - [Allure Documentation](https://docs.qameta.io/allure/)
 
+## Multi-Agent Commands
+
+### Generate Complete Test Suite
+```bash
+/generate-test-suite web-app react --with-e2e --with-a11y
+```
+This spawns multiple agents in parallel to create:
+- Unit test templates
+- Integration test suites
+- E2E test scenarios
+- Performance tests
+- CI/CD configurations
+- Docker test environments
+
+See `.claude/commands/generate-test-suite.md` for details.
+
+## Agent Directory Structure
+```
+agents/
+├── testing/           # Test generation agents
+├── research/          # Best practices research
+├── implementation/    # Infrastructure setup
+└── validation/        # Quality assurance
+```
+
 ## Version History
+- **v2.0.0** (Sept 2025) - Multi-agent workflow integration
+  - Parallel test suite generation
+  - Intelligent research agents
+  - Automated validation
 - **v1.0.0** (Sept 2025) - Initial framework setup with blog-poster reference
-- Templates for React, WordPress, FastAPI
-- Allure dashboard integration
-- Docker-first testing approach
+  - Templates for React, WordPress, FastAPI
+  - Allure dashboard integration
+  - Docker-first testing approach
 
 ---
 
-**Remember**: The goal is to make testing setup so easy that there's no excuse not to have comprehensive tests in every project!
+**Remember**: The goal is to make testing setup so easy that there's no excuse not to have comprehensive tests in every project! With multi-agent workflows, complete test suites can be generated in minutes, not hours.

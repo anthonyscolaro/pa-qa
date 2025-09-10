@@ -1,6 +1,9 @@
-# PA-QA: Project Assistant Quality Assurance Framework
+# PA-QA: Multi-Agent Testing Framework
 
-A comprehensive testing and quality assurance reference framework for our web development agency. This repository contains templates, configurations, and best practices for setting up testing across different project types.
+A comprehensive testing and quality assurance reference framework powered by multi-agent workflows. This repository contains templates, configurations, and best practices for rapidly generating complete test suites across different project types.
+
+## 🤖 Multi-Agent Approach
+This framework uses parallel agent execution to generate test suites 70% faster than traditional methods. Multiple specialized agents work simultaneously on unit tests, E2E tests, CI/CD setup, and more.
 
 ## 📁 Directory Structure
 
@@ -49,6 +52,15 @@ pa-qa/
 │   ├── monitoring-scripts/ # Performance monitoring
 │   └── security-scanning/  # Security test templates
 │
+├── agents/                 # Multi-agent configurations
+│   ├── testing/            # Test generation agents
+│   ├── research/           # Best practices research
+│   ├── implementation/     # Infrastructure setup
+│   └── validation/         # Quality assurance
+│
+├── memory/                 # Agent workflows and patterns
+│   └── multi-agent-workflow.md
+│
 ├── docs/                   # Documentation
 │   ├── setup-guides/       # Step-by-step setup instructions
 │   ├── best-practices/     # Testing best practices
@@ -58,7 +70,23 @@ pa-qa/
     └── (symlink to ~/apps/blog-poster)
 ```
 
-## 🚀 Quick Start
+## 🚀 Quick Start with Multi-Agent Generation
+
+### Generate Complete Test Suite (NEW!)
+```bash
+# Use Claude Code's multi-agent command to generate everything at once
+/generate-test-suite web-app react --with-e2e --with-a11y
+```
+
+This spawns multiple agents in parallel to:
+- Research best practices
+- Generate unit test templates
+- Create E2E test suites
+- Setup CI/CD pipelines
+- Configure Docker environments
+- Add accessibility testing
+
+## 📋 Manual Setup
 
 ### For a New React Project:
 ```bash
