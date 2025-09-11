@@ -1,0 +1,392 @@
+# Standalone Ruff Configuration
+# This file provides additional Ruff-specific configuration
+# Use this when pyproject.toml is not available or for project-specific overrides
+
+target-version = "py39"
+line-length = 88
+indent-width = 4
+
+# Enable preview features for cutting-edge linting
+preview = false
+
+# Show fixes in output
+show-fixes = true
+
+# Output format (options: text, json, junit, github, gitlab, pylint, azure)
+output-format = "text"
+
+# Respect gitignore files
+respect-gitignore = true
+
+# Include/exclude patterns
+include = ["*.py", "*.pyi", "**/pyproject.toml"]
+extend-exclude = [
+    "__pycache__",
+    ".bzr",
+    ".direnv", 
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "venv",
+    # Framework specific
+    "migrations",
+    "static",
+    "media",
+    "locale",
+    # Django
+    "manage.py",
+    "wsgi.py",
+    "asgi.py",
+    # Common config files
+    "setup.py",
+    "conftest.py",
+]
+
+# Rule selection - comprehensive set for high-quality Python code
+select = [
+    # Pyflakes
+    "F",     # pyflakes
+    # Pycodestyle
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    # McCabe complexity
+    "C90",   # mccabe
+    # isort
+    "I",     # isort
+    # pep8-naming
+    "N",     # pep8-naming
+    # pydocstyle
+    "D",     # pydocstyle
+    # pyupgrade
+    "UP",    # pyupgrade
+    # flake8-annotations
+    "ANN",   # flake8-annotations
+    # flake8-async
+    "ASYNC", # flake8-async
+    # flake8-bandit
+    "S",     # flake8-bandit
+    # flake8-blind-except
+    "BLE",   # flake8-blind-except
+    # flake8-boolean-trap
+    "FBT",   # flake8-boolean-trap
+    # flake8-bugbear
+    "B",     # flake8-bugbear
+    # flake8-builtins
+    "A",     # flake8-builtins
+    # flake8-commas
+    "COM",   # flake8-commas
+    # flake8-comprehensions
+    "C4",    # flake8-comprehensions
+    # flake8-datetimez
+    "DTZ",   # flake8-datetimez
+    # flake8-debugger
+    "T10",   # flake8-debugger
+    # flake8-django
+    "DJ",    # flake8-django
+    # flake8-errmsg
+    "EM",    # flake8-errmsg
+    # flake8-executable
+    "EXE",   # flake8-executable
+    # flake8-future-annotations
+    "FA",    # flake8-future-annotations
+    # flake8-implicit-str-concat
+    "ISC",   # flake8-implicit-str-concat
+    # flake8-import-conventions
+    "ICN",   # flake8-import-conventions
+    # flake8-logging-format
+    "G",     # flake8-logging-format
+    # flake8-no-pep420
+    "INP",   # flake8-no-pep420
+    # flake8-pie
+    "PIE",   # flake8-pie
+    # flake8-print
+    "T20",   # flake8-print
+    # flake8-pytest-style
+    "PT",    # flake8-pytest-style
+    # flake8-quotes
+    "Q",     # flake8-quotes
+    # flake8-raise
+    "RSE",   # flake8-raise
+    # flake8-return
+    "RET",   # flake8-return
+    # flake8-self
+    "SLF",   # flake8-self
+    # flake8-simplify
+    "SIM",   # flake8-simplify
+    # flake8-tidy-imports
+    "TID",   # flake8-tidy-imports
+    # flake8-type-checking
+    "TCH",   # flake8-type-checking
+    # flake8-unused-arguments
+    "ARG",   # flake8-unused-arguments
+    # flake8-use-pathlib
+    "PTH",   # flake8-use-pathlib
+    # eradicate
+    "ERA",   # eradicate
+    # pandas-vet
+    "PD",    # pandas-vet
+    # pygrep-hooks
+    "PGH",   # pygrep-hooks
+    # Pylint
+    "PL",    # pylint
+    # tryceratops
+    "TRY",   # tryceratops
+    # flynt
+    "FLY",   # flynt
+    # NumPy-specific rules
+    "NPY",   # NumPy-specific rules
+    # Ruff-specific rules
+    "RUF",   # ruff
+    # flake8-todos
+    "TD",    # flake8-todos
+    # flake8-fixme
+    "FIX",   # flake8-fixme
+]
+
+# Rules to ignore
+ignore = [
+    # Pycodestyle
+    "E501",   # Line too long (handled by black)
+    "E203",   # Whitespace before ':' (conflicts with black)
+    "W503",   # Line break before binary operator (conflicts with black)
+    
+    # pydocstyle - relaxed for certain cases
+    "D100",   # Missing docstring in public module
+    "D104",   # Missing docstring in public package
+    "D107",   # Missing docstring in __init__
+    "D203",   # 1 blank line required before class docstring (conflicts with D211)
+    "D212",   # Multi-line docstring summary should start at the first line
+    "D213",   # Multi-line docstring summary should start at the second line
+    "D215",   # Section underline is over-indented
+    "D404",   # First word of the docstring should not be "This"
+    "D406",   # Section name should end with a newline
+    "D407",   # Missing dashed underline after section
+    "D408",   # Section underline should be in the line following the section's name
+    "D409",   # Section underline should match the length of its name
+    "D413",   # Missing blank line after last section
+    
+    # flake8-annotations - gradual typing
+    "ANN001", # Missing type annotation for function argument
+    "ANN002", # Missing type annotation for *args
+    "ANN003", # Missing type annotation for **kwargs
+    "ANN101", # Missing type annotation for self in method
+    "ANN102", # Missing type annotation for cls in classmethod
+    "ANN201", # Missing return type annotation for public function
+    "ANN202", # Missing return type annotation for private function
+    "ANN204", # Missing return type annotation for special method
+    "ANN206", # Missing return type annotation for classmethod
+    
+    # flake8-boolean-trap - FastAPI/Django compatibility
+    "FBT001", # Boolean positional arg in function definition
+    "FBT002", # Boolean default value in function definition
+    "FBT003", # Boolean positional value in function call
+    
+    # Complexity - handled by other tools
+    "C901",   # Too complex (handled by pylint)
+    "PLR0911", # Too many return statements
+    "PLR0912", # Too many branches
+    "PLR0913", # Too many arguments
+    "PLR0915", # Too many statements
+    "PLR2004", # Magic value used in comparison
+    
+    # Security - context-dependent
+    "S101",   # Use of assert detected (OK in tests)
+    "S104",   # Possible binding to all interfaces
+    "S105",   # Possible hardcoded password
+    "S106",   # Possible hardcoded password
+    "S107",   # Possible hardcoded password
+    "S602",   # subprocess call with shell=True
+    "S603",   # subprocess call without shell=True
+    
+    # Django-specific overrides
+    "DJ001",  # Avoid using null=True on string-based fields
+    "DJ003",  # Avoid using locals() in render functions
+    "DJ006",  # Avoid using exclude with ModelForm
+    "DJ007",  # Avoid using __all__ with ModelForm
+    "DJ008",  # Avoid using model without Meta.app_label
+    
+    # Todos and fixmes - project dependent
+    "TD001",  # Invalid TODO tag
+    "TD002",  # Missing author in TODO
+    "TD003",  # Missing issue link in TODO
+    "FIX001", # Line contains FIXME
+    "FIX002", # Line contains TODO
+    "FIX003", # Line contains XXX
+    "FIX004", # Line contains HACK
+    
+    # tryceratops - context dependent
+    "TRY003", # Avoid specifying long messages outside the exception class
+    "TRY300", # Consider moving statement to try block
+    "TRY301", # Abstract raise to an inner function
+    
+    # Pylint - fine-tuning
+    "PLW2901", # Redefined loop variable
+    "PLR1714", # Consider merging multiple comparisons
+    "PLR5501", # Consider using elif instead of else if
+]
+
+# Per-file ignores for specific file patterns
+[per-file-ignores]
+# Test files - more permissive rules
+"tests/**/*" = [
+    "S101",    # Allow assert in tests
+    "PLR2004", # Allow magic values in tests
+    "ANN",     # Skip annotations in tests
+    "D",       # Skip docstrings in tests
+    "SLF001",  # Allow private member access in tests
+    "PT011",   # pytest.raises without match parameter
+    "ARG001",  # Unused function arguments (fixtures)
+    "FBT001",  # Boolean positional argument
+    "S106",    # Hardcoded password in tests
+]
+"test_*.py" = [
+    "S101", "PLR2004", "ANN", "D", "SLF001", "PT011", "ARG001", "FBT001", "S106"
+]
+"**/test_*.py" = [
+    "S101", "PLR2004", "ANN", "D", "SLF001", "PT011", "ARG001", "FBT001", "S106"
+]
+"conftest.py" = [
+    "ANN", "D", "ARG001", "FBT001"
+]
+
+# FastAPI specific files
+"**/api/**/*" = [
+    "B008",    # Function call in argument defaults (FastAPI dependencies)
+    "ANN",     # Annotations handled by Pydantic
+    "FBT001",  # Boolean arguments OK in API endpoints
+]
+"**/routers/**/*" = ["B008", "ANN", "FBT001"]
+"**/endpoints/**/*" = ["B008", "ANN", "FBT001"]
+"**/dependencies.py" = ["B008", "ANN"]
+"**/schemas.py" = ["ANN"]
+
+# Django specific files
+"**/models.py" = [
+    "A003",    # Class attribute shadows builtin (Django fields)
+    "DJ001",   # null=True on string fields sometimes needed
+    "ANN",     # Django handles types
+    "D106",    # Missing docstring in nested class (Meta)
+]
+"**/admin.py" = [
+    "RUF012",  # Mutable class attributes (Django admin)
+    "ANN",     # Django admin configuration
+    "D",       # Admin classes don't need docstrings
+]
+"**/urls.py" = [
+    "RUF005",  # Collection literals (Django URL patterns)
+    "ANN",     # URL patterns don't need annotations
+    "D",       # URL files don't need docstrings
+]
+"**/views.py" = [
+    "PLR0913", # Many arguments OK in views
+    "FBT001",  # Boolean arguments OK in views
+    "ANN",     # Django views don't always need annotations
+]
+"**/forms.py" = [
+    "A003",    # Django form fields
+    "ANN",     # Django forms
+]
+"**/serializers.py" = [
+    "A003",    # DRF serializer fields
+    "ANN",     # DRF serializers
+]
+"**/migrations/**/*" = [
+    "D", "ANN", "E501", "RUF012", "N806", "N802", "PLR0913"
+]
+"**/settings/**/*" = [
+    "S105", "S106", "S107",  # Settings files can have hardcoded values
+    "F403", "F405",          # Star imports OK in settings
+    "ERA001",                # Commented code OK in settings
+]
+"**/config/**/*" = ["S105", "S106", "S107", "F403", "F405", "ERA001"]
+
+# Management commands
+"**/management/commands/**/*" = [
+    "T201",    # print() OK in management commands
+    "ANN",     # Management commands don't need full annotations
+    "PLR0913", # Many arguments OK in management commands
+]
+
+# Scripts and utilities
+"scripts/**/*" = ["T201", "S602", "S603", "PLR0913"]
+"manage.py" = ["ANN", "D", "T201"]
+"setup.py" = ["ANN", "D"]
+"wsgi.py" = ["ANN", "D"]
+"asgi.py" = ["ANN", "D"]
+
+[mccabe]
+max-complexity = 10
+
+[isort]
+known-first-party = ["app", "src", "tests"]
+known-third-party = ["fastapi", "django", "pydantic", "sqlalchemy", "requests", "httpx"]
+force-single-line = false
+force-sort-within-sections = true
+section-order = [
+    "future",
+    "standard-library",
+    "third-party", 
+    "first-party",
+    "local-folder"
+]
+
+[flake8-quotes]
+inline-quotes = "double"
+multiline-quotes = "double"
+docstring-quotes = "double"
+avoid-escape = true
+
+[flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[pylint]
+max-args = 8
+max-branches = 15
+max-returns = 8
+max-statements = 60
+max-public-methods = 25
+max-locals = 20
+max-nested-blocks = 6
+
+[flake8-pytest-style]
+fixture-parentheses = false
+parametrize-names-type = "tuple"
+parametrize-values-type = "tuple"
+parametrize-values-row-type = "tuple"
+
+[flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query", 
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+    "fastapi.Cookie",
+    "fastapi.Form",
+    "fastapi.File",
+    "fastapi.Security",
+    "django.conf.settings",
+]
+
+[pydocstyle]
+convention = "google"
+
+[flake8-annotations]
+mypy-init-return = true
+suppress-none-returning = true
+suppress-dummy-args = true

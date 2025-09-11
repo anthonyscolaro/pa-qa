@@ -1,0 +1,340 @@
+# Docker Compose configuration for PA-QA local testing environment
+# Supports React, WordPress, FastAPI, and service dependencies
+version: '3.8'
+
+services:
+  # Node.js test runner for React/Vue/Angular projects
+  node-tests:
+    build:
+      context: .
+      dockerfile: shared/docker-templates/testing/node-test.Dockerfile
+      target: full-suite
+    container_name: pa-qa-node-tests
+    volumes:
+      - .:/app
+      - node_modules_cache:/app/node_modules
+      - test_results:/app/test-results
+      - coverage_reports:/app/coverage
+      - allure_results:/app/allure-results
+      - screenshots:/app/screenshots
+      - videos:/app/videos
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - ALLURE_RESULTS_DIR=/app/allure-results
+      - PLAYWRIGHT_BROWSERS_PATH=/app/browsers
+      - CHROME_BIN=/usr/bin/chromium-browser
+    networks:
+      - test-network
+    depends_on:
+      - redis
+      - postgres
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - node
+      - all
+
+  # Python test runner for FastAPI/Django projects
+  python-tests:
+    build:
+      context: .
+      dockerfile: shared/docker-templates/testing/python-test.Dockerfile
+      target: full-suite
+    container_name: pa-qa-python-tests
+    volumes:
+      - .:/app
+      - python_cache:/app/.pytest_cache
+      - test_results:/app/test-results
+      - coverage_reports:/app/coverage
+      - allure_results:/app/allure-results
+    environment:
+      - PYTHONPATH=/app
+      - ENVIRONMENT=test
+      - DATABASE_URL=postgresql://test_user:test_pass@postgres:5432/test_db
+      - REDIS_URL=redis://redis:6379/0
+      - ALLURE_RESULTS_DIR=/app/allure-results
+    networks:
+      - test-network
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "python", "-c", "import pytest; print('pytest ready')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - python
+      - all
+
+  # PHP test runner for WordPress/Laravel projects
+  php-tests:
+    build:
+      context: .
+      dockerfile: shared/docker-templates/testing/php-test.Dockerfile
+      target: full-suite
+    container_name: pa-qa-php-tests
+    volumes:
+      - .:/var/www/html
+      - php_vendor_cache:/var/www/html/vendor
+      - test_results:/var/www/html/test-results
+      - coverage_reports:/var/www/html/coverage
+      - allure_results:/var/www/html/allure-results
+    environment:
+      - WP_ENV=test
+      - WP_DB_NAME=wordpress_test
+      - WP_DB_USER=test_user
+      - WP_DB_PASSWORD=test_pass
+      - WP_DB_HOST=mysql
+      - MYSQL_ROOT_PASSWORD=test_pass
+    networks:
+      - test-network
+    depends_on:
+      - mysql
+      - redis
+    healthcheck:
+      test: ["CMD", "php", "-v"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - php
+      - all
+
+  # E2E test runner with browsers
+  e2e-tests:
+    build:
+      context: .
+      dockerfile: shared/docker-templates/testing/node-test.Dockerfile
+      target: e2e-runner
+    container_name: pa-qa-e2e-tests
+    volumes:
+      - .:/app
+      - test_results:/app/test-results
+      - screenshots:/app/screenshots
+      - videos:/app/videos
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - HEADED=false
+      - BASE_URL=http://app:3000
+      - API_URL=http://api:8000
+      - WP_URL=http://wordpress:80
+    networks:
+      - test-network
+    depends_on:
+      - app
+      - api
+      - wordpress
+    shm_size: 2gb
+    profiles:
+      - e2e
+      - all
+
+  # Performance test runner
+  performance-tests:
+    build:
+      context: .
+      dockerfile: shared/docker-templates/testing/node-test.Dockerfile
+      target: perf-runner
+    container_name: pa-qa-performance-tests
+    volumes:
+      - .:/app
+      - test_results:/app/test-results
+      - performance_reports:/app/performance-reports
+    environment:
+      - NODE_ENV=test
+      - TARGET_URL=http://app:3000
+      - LIGHTHOUSE_CONFIG_PATH=/app/lighthouse.config.js
+    networks:
+      - test-network
+    depends_on:
+      - app
+    profiles:
+      - performance
+      - all
+
+  # Load test runner (Python Locust)
+  load-tests:
+    build:
+      context: .
+      dockerfile: shared/docker-templates/testing/python-test.Dockerfile
+      target: load-runner
+    container_name: pa-qa-load-tests
+    ports:
+      - "8089:8089"
+    volumes:
+      - .:/app
+      - test_results:/app/test-results
+    environment:
+      - LOCUST_HOST=http://app:3000
+      - LOCUST_USERS=100
+      - LOCUST_SPAWN_RATE=10
+      - LOCUST_RUN_TIME=5m
+    networks:
+      - test-network
+    depends_on:
+      - app
+    profiles:
+      - load
+      - all
+
+  # Application containers for testing against
+  app:
+    image: node:18-alpine
+    container_name: pa-qa-test-app
+    working_dir: /app
+    volumes:
+      - .:/app
+    command: npm start
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=test
+      - DATABASE_URL=postgresql://test_user:test_pass@postgres:5432/test_db
+      - REDIS_URL=redis://redis:6379/0
+    networks:
+      - test-network
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - app
+      - all
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pa-qa-test-api
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=test
+      - DATABASE_URL=postgresql://test_user:test_pass@postgres:5432/test_db
+      - REDIS_URL=redis://redis:6379/0
+    networks:
+      - test-network
+    depends_on:
+      - postgres
+      - redis
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - api
+      - all
+
+  wordpress:
+    image: wordpress:6.4-apache
+    container_name: pa-qa-test-wordpress
+    ports:
+      - "8080:80"
+    environment:
+      - WORDPRESS_DB_HOST=mysql
+      - WORDPRESS_DB_USER=test_user
+      - WORDPRESS_DB_PASSWORD=test_pass
+      - WORDPRESS_DB_NAME=wordpress_test
+      - WORDPRESS_DEBUG=1
+    volumes:
+      - wordpress_data:/var/www/html
+    networks:
+      - test-network
+    depends_on:
+      - mysql
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/wp-admin/install.php"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - wordpress
+      - all
+
+  # Allure report server
+  allure:
+    image: frankescobar/allure-docker-service:2.22.1
+    container_name: pa-qa-allure
+    ports:
+      - "5050:5050"
+    environment:
+      - CHECK_RESULTS_EVERY_SECONDS=3
+      - KEEP_HISTORY=TRUE
+      - KEEP_HISTORY_LATEST=30
+    volumes:
+      - allure_results:/app/allure-results
+      - allure_reports:/app/default-reports
+    networks:
+      - test-network
+    profiles:
+      - allure
+      - all
+
+  # Test results aggregator
+  test-aggregator:
+    image: alpine:latest
+    container_name: pa-qa-test-aggregator
+    volumes:
+      - test_results:/test-results
+      - coverage_reports:/coverage
+      - allure_results:/allure-results
+      - ./scripts:/scripts
+    command: sh /scripts/aggregate-results.sh
+    networks:
+      - test-network
+    depends_on:
+      - node-tests
+      - python-tests
+      - php-tests
+    profiles:
+      - aggregator
+      - all
+
+volumes:
+  node_modules_cache:
+    driver: local
+  python_cache:
+    driver: local
+  php_vendor_cache:
+    driver: local
+  test_results:
+    driver: local
+  coverage_reports:
+    driver: local
+  allure_results:
+    driver: local
+  allure_reports:
+    driver: local
+  screenshots:
+    driver: local
+  videos:
+    driver: local
+  performance_reports:
+    driver: local
+  wordpress_data:
+    driver: local
+
+networks:
+  test-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# Health check configurations
+x-healthcheck-defaults: &healthcheck-defaults
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 10s

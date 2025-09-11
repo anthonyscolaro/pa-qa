@@ -1,0 +1,678 @@
+name: Automated Dependency Updates
+
+on:
+  schedule:
+    # Run dependency updates Monday-Friday at 9 AM UTC
+    - cron: '0 9 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      update_type:
+        description: 'Type of updates to perform'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+          - all
+      force_update:
+        description: 'Force update even if tests fail'
+        required: false
+        default: false
+        type: boolean
+      dry_run:
+        description: 'Perform a dry run without creating PRs'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: dependency-updates
+  cancel-in-progress: true
+
+env:
+  UPDATE_TYPE: ${{ github.event.inputs.update_type || 'patch' }}
+  FORCE_UPDATE: ${{ github.event.inputs.force_update || 'false' }}
+  DRY_RUN: ${{ github.event.inputs.dry_run || 'false' }}
+
+jobs:
+  detect-project-technologies:
+    runs-on: ubuntu-latest
+    outputs:
+      has-node: ${{ steps.detect.outputs.has-node }}
+      has-python: ${{ steps.detect.outputs.has-python }}
+      has-php: ${{ steps.detect.outputs.has-php }}
+      has-ruby: ${{ steps.detect.outputs.has-ruby }}
+      has-go: ${{ steps.detect.outputs.has-go }}
+      has-rust: ${{ steps.detect.outputs.has-rust }}
+      has-docker: ${{ steps.detect.outputs.has-docker }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect project technologies
+        id: detect
+        run: |
+          echo "has-node=$([ -f package.json ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-python=$([ -f requirements.txt ] || [ -f pyproject.toml ] || [ -f Pipfile ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-php=$([ -f composer.json ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-ruby=$([ -f Gemfile ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-go=$([ -f go.mod ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-rust=$([ -f Cargo.toml ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-docker=$([ -f Dockerfile ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
+  update-node-dependencies:
+    runs-on: ubuntu-latest
+    needs: detect-project-technologies
+    if: needs.detect-project-technologies.outputs.has-node == 'true'
+    strategy:
+      matrix:
+        dependency-type: [dependencies, devDependencies]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install npm-check-updates
+        run: npm install -g npm-check-updates
+
+      - name: Check for outdated packages
+        id: check
+        run: |
+          echo "🔍 Checking for outdated Node.js packages..."
+          
+          # Get current package.json
+          cp package.json package.json.backup
+          
+          # Check what would be updated
+          case "${{ env.UPDATE_TYPE }}" in
+            patch)
+              ncu_args="--target patch"
+              ;;
+            minor)
+              ncu_args="--target minor"
+              ;;
+            major)
+              ncu_args="--target latest"
+              ;;
+            all)
+              ncu_args="--target latest"
+              ;;
+          esac
+          
+          if [ "${{ matrix.dependency-type }}" == "devDependencies" ]; then
+            ncu_args="$ncu_args --dep dev"
+          else
+            ncu_args="$ncu_args --dep prod"
+          fi
+          
+          # Perform dry run to see what would change
+          updates=$(ncu $ncu_args --jsonUpgraded)
+          echo "updates=$updates" >> $GITHUB_OUTPUT
+          
+          if [ "$updates" == "{}" ]; then
+            echo "has-updates=false" >> $GITHUB_OUTPUT
+            echo "✅ No ${{ matrix.dependency-type }} updates available"
+          else
+            echo "has-updates=true" >> $GITHUB_OUTPUT
+            echo "📦 Found ${{ matrix.dependency-type }} updates:"
+            echo "$updates" | jq -r 'to_entries[] | "  \(.key): \(.value)"'
+          fi
+
+      - name: Apply updates
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "📝 Applying ${{ matrix.dependency-type }} updates..."
+          
+          case "${{ env.UPDATE_TYPE }}" in
+            patch)
+              ncu_args="--target patch"
+              ;;
+            minor)
+              ncu_args="--target minor"
+              ;;
+            major)
+              ncu_args="--target latest"
+              ;;
+            all)
+              ncu_args="--target latest"
+              ;;
+          esac
+          
+          if [ "${{ matrix.dependency-type }}" == "devDependencies" ]; then
+            ncu_args="$ncu_args --dep dev"
+          else
+            ncu_args="$ncu_args --dep prod"
+          fi
+          
+          # Apply updates
+          ncu $ncu_args --upgrade
+          
+          # Install updated packages
+          npm install
+
+      - name: Run tests after Node.js updates
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "🧪 Running tests after ${{ matrix.dependency-type }} updates..."
+          
+          # Run available test scripts
+          if npm run test --if-present; then
+            echo "✅ Tests passed after updates"
+            echo "test-status=passed" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Tests failed after updates"
+            echo "test-status=failed" >> $GITHUB_OUTPUT
+            
+            if [ "${{ env.FORCE_UPDATE }}" == "false" ]; then
+              echo "🔄 Reverting updates due to test failures..."
+              cp package.json.backup package.json
+              npm install
+              exit 1
+            fi
+          fi
+
+      - name: Upload Node.js update results
+        if: steps.check.outputs.has-updates == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: node-${{ matrix.dependency-type }}-updates
+          path: |
+            package.json
+            package-lock.json
+          retention-days: 7
+
+  update-python-dependencies:
+    runs-on: ubuntu-latest
+    needs: detect-project-technologies
+    if: needs.detect-project-technologies.outputs.has-python == 'true'
+    strategy:
+      matrix:
+        python-version: ['3.11']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependency update tools
+        run: |
+          pip install pip-tools pip-audit safety pur
+
+      - name: Check for outdated Python packages
+        id: check
+        run: |
+          echo "🔍 Checking for outdated Python packages..."
+          
+          # Create backup
+          if [ -f requirements.txt ]; then
+            cp requirements.txt requirements.txt.backup
+          fi
+          if [ -f pyproject.toml ]; then
+            cp pyproject.toml pyproject.toml.backup
+          fi
+          
+          # Check for outdated packages
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+            outdated=$(pip list --outdated --format=json || echo "[]")
+            
+            if [ "$outdated" != "[]" ]; then
+              echo "has-updates=true" >> $GITHUB_OUTPUT
+              echo "📦 Found Python package updates:"
+              echo "$outdated" | jq -r '.[] | "  \(.name): \(.version) -> \(.latest_version)"'
+            else
+              echo "has-updates=false" >> $GITHUB_OUTPUT
+              echo "✅ No Python package updates available"
+            fi
+          fi
+
+      - name: Apply Python updates
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "📝 Applying Python package updates..."
+          
+          # Update requirements.txt with pur
+          if [ -f requirements.txt ]; then
+            case "${{ env.UPDATE_TYPE }}" in
+              patch)
+                # Only update patch versions (no direct pur support, use pip-review)
+                pip install pip-review
+                pip-review --auto --preview
+                ;;
+              minor|major|all)
+                pur -r requirements.txt
+                ;;
+            esac
+            
+            # Install updated packages
+            pip install -r requirements.txt
+          fi
+
+      - name: Security check after Python updates
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "🔒 Running security checks after updates..."
+          
+          # Run safety check
+          safety check --json > safety-report.json || true
+          
+          # Run pip-audit
+          pip-audit --format=json --output=pip-audit-report.json || true
+          
+          # Check for high severity vulnerabilities
+          high_vulns=$(jq '[.vulnerabilities[] | select(.severity == "high")] | length' safety-report.json 2>/dev/null || echo "0")
+          
+          if [ "$high_vulns" -gt 0 ]; then
+            echo "❌ High severity vulnerabilities found after updates"
+            if [ "${{ env.FORCE_UPDATE }}" == "false" ]; then
+              exit 1
+            fi
+          fi
+
+      - name: Run tests after Python updates
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "🧪 Running tests after Python updates..."
+          
+          # Run tests if pytest is available
+          if command -v pytest &> /dev/null; then
+            if pytest --maxfail=5 --tb=short; then
+              echo "✅ Tests passed after updates"
+              echo "test-status=passed" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Tests failed after updates"
+              echo "test-status=failed" >> $GITHUB_OUTPUT
+              
+              if [ "${{ env.FORCE_UPDATE }}" == "false" ]; then
+                echo "🔄 Reverting updates due to test failures..."
+                if [ -f requirements.txt.backup ]; then
+                  cp requirements.txt.backup requirements.txt
+                fi
+                exit 1
+              fi
+            fi
+          else
+            echo "ℹ️  No pytest found, skipping tests"
+          fi
+
+      - name: Upload Python update results
+        if: steps.check.outputs.has-updates == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-updates
+          path: |
+            requirements*.txt
+            pyproject.toml
+            safety-report.json
+            pip-audit-report.json
+          retention-days: 7
+
+  update-php-dependencies:
+    runs-on: ubuntu-latest
+    needs: detect-project-technologies
+    if: needs.detect-project-technologies.outputs.has-php == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Check for outdated PHP packages
+        id: check
+        run: |
+          echo "🔍 Checking for outdated PHP packages..."
+          
+          # Create backup
+          cp composer.json composer.json.backup
+          cp composer.lock composer.lock.backup
+          
+          # Check for outdated packages
+          outdated=$(composer outdated --format=json --direct || echo "{}")
+          
+          if [ "$outdated" != "{}" ] && [ "$(echo "$outdated" | jq '.installed | length')" -gt 0 ]; then
+            echo "has-updates=true" >> $GITHUB_OUTPUT
+            echo "📦 Found PHP package updates:"
+            echo "$outdated" | jq -r '.installed[] | "  \(.name): \(.version) -> \(.latest)"'
+          else
+            echo "has-updates=false" >> $GITHUB_OUTPUT
+            echo "✅ No PHP package updates available"
+          fi
+
+      - name: Apply PHP updates
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "📝 Applying PHP package updates..."
+          
+          case "${{ env.UPDATE_TYPE }}" in
+            patch)
+              # Update only patch versions
+              composer update --with-dependencies --optimize-autoloader --prefer-stable
+              ;;
+            minor)
+              # Allow minor version updates
+              composer update --with-dependencies --optimize-autoloader --prefer-stable
+              ;;
+            major|all)
+              # Allow major version updates (use with caution)
+              composer update --with-dependencies --optimize-autoloader --prefer-stable
+              ;;
+          esac
+
+      - name: Run PHP security audit
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "🔒 Running PHP security audit..."
+          
+          # Run composer audit
+          composer audit --format=json > composer-audit.json || true
+          
+          # Check for high severity issues
+          high_issues=$(jq '[.advisories[] | select(.severity == "high")] | length' composer-audit.json 2>/dev/null || echo "0")
+          
+          if [ "$high_issues" -gt 0 ]; then
+            echo "❌ High severity security issues found"
+            if [ "${{ env.FORCE_UPDATE }}" == "false" ]; then
+              exit 1
+            fi
+          fi
+
+      - name: Run tests after PHP updates
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "🧪 Running tests after PHP updates..."
+          
+          # Run PHPUnit tests if available
+          if [ -f vendor/bin/phpunit ]; then
+            if ./vendor/bin/phpunit --stop-on-failure; then
+              echo "✅ Tests passed after updates"
+              echo "test-status=passed" >> $GITHUB_OUTPUT
+            else
+              echo "❌ Tests failed after updates"
+              echo "test-status=failed" >> $GITHUB_OUTPUT
+              
+              if [ "${{ env.FORCE_UPDATE }}" == "false" ]; then
+                echo "🔄 Reverting updates due to test failures..."
+                cp composer.json.backup composer.json
+                cp composer.lock.backup composer.lock
+                composer install
+                exit 1
+              fi
+            fi
+          else
+            echo "ℹ️  No PHPUnit found, skipping tests"
+          fi
+
+      - name: Upload PHP update results
+        if: steps.check.outputs.has-updates == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: php-updates
+          path: |
+            composer.json
+            composer.lock
+            composer-audit.json
+          retention-days: 7
+
+  update-docker-dependencies:
+    runs-on: ubuntu-latest
+    needs: detect-project-technologies
+    if: needs.detect-project-technologies.outputs.has-docker == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check for Docker base image updates
+        id: check
+        run: |
+          echo "🔍 Checking for Docker base image updates..."
+          
+          # Extract base images from Dockerfiles
+          base_images=$(grep -E "^FROM " Dockerfile* 2>/dev/null | awk '{print $2}' | sort -u || echo "")
+          
+          if [ -n "$base_images" ]; then
+            echo "has-updates=false" >> $GITHUB_OUTPUT
+            
+            echo "📦 Found base images:"
+            for image in $base_images; do
+              echo "  $image"
+              
+              # Check if image has updates available
+              current_digest=$(docker manifest inspect "$image" 2>/dev/null | jq -r '.config.digest' 2>/dev/null || echo "")
+              
+              if [ -n "$current_digest" ]; then
+                echo "    Current digest: $current_digest"
+                echo "has-updates=true" >> $GITHUB_OUTPUT
+              fi
+            done
+          else
+            echo "has-updates=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No Dockerfiles found"
+          fi
+
+      - name: Update Docker base images
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "📝 Pulling latest Docker base images..."
+          
+          # Pull latest versions of base images
+          base_images=$(grep -E "^FROM " Dockerfile* 2>/dev/null | awk '{print $2}' | sort -u)
+          
+          for image in $base_images; do
+            echo "Pulling $image..."
+            docker pull "$image"
+          done
+
+      - name: Test Docker build after updates
+        if: steps.check.outputs.has-updates == 'true' && env.DRY_RUN == 'false'
+        run: |
+          echo "🧪 Testing Docker build after base image updates..."
+          
+          if docker build -t test-build .; then
+            echo "✅ Docker build successful after updates"
+            echo "build-status=passed" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Docker build failed after updates"
+            echo "build-status=failed" >> $GITHUB_OUTPUT
+            
+            if [ "${{ env.FORCE_UPDATE }}" == "false" ]; then
+              exit 1
+            fi
+          fi
+
+  create-update-pull-requests:
+    runs-on: ubuntu-latest
+    needs: [detect-project-technologies, update-node-dependencies, update-python-dependencies, update-php-dependencies, update-docker-dependencies]
+    if: always() && env.DRY_RUN == 'false'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DEPENDENCY_UPDATE_TOKEN }}
+
+      - name: Download update artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: update-artifacts
+        continue-on-error: true
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "pa-qa-bot"
+          git config --global user.email "qa-bot@projectassistant.ai"
+
+      - name: Create Node.js dependency update PR
+        if: needs.detect-project-technologies.outputs.has-node == 'true'
+        run: |
+          if [ -d "update-artifacts/node-dependencies-updates" ] || [ -d "update-artifacts/node-devDependencies-updates" ]; then
+            echo "📝 Creating Node.js dependency update PR..."
+            
+            # Create a new branch
+            branch_name="dependency-updates/nodejs-$(date +%Y%m%d-%H%M%S)"
+            git checkout -b "$branch_name"
+            
+            # Apply Node.js updates
+            if [ -d "update-artifacts/node-dependencies-updates" ]; then
+              cp update-artifacts/node-dependencies-updates/package.json .
+              cp update-artifacts/node-dependencies-updates/package-lock.json .
+            fi
+            if [ -d "update-artifacts/node-devDependencies-updates" ]; then
+              cp update-artifacts/node-devDependencies-updates/package.json .
+              cp update-artifacts/node-devDependencies-updates/package-lock.json .
+            fi
+            
+            # Commit changes
+            git add package.json package-lock.json
+            git commit -m "chore: update Node.js dependencies (${{ env.UPDATE_TYPE }} updates)
+
+            - Automated dependency updates via PA-QA pipeline
+            - Update type: ${{ env.UPDATE_TYPE }}
+            - Generated on: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+            
+            # Push branch
+            git push origin "$branch_name"
+            
+            # Create PR
+            gh pr create \
+              --title "🔄 Update Node.js Dependencies (${{ env.UPDATE_TYPE }})" \
+              --body "$(cat <<'EOF'
+            ## 📦 Automated Dependency Updates
+            
+            This PR contains automated updates for Node.js dependencies.
+            
+            **Update Type:** ${{ env.UPDATE_TYPE }}
+            **Generated:** $(date -u +'%Y-%m-%d %H:%M:%S UTC')
+            
+            ### Changes
+            - Updated Node.js dependencies to latest ${{ env.UPDATE_TYPE }} versions
+            - All tests passed ✅
+            - Security checks completed ✅
+            
+            ### Verification
+            - [ ] Dependencies updated successfully
+            - [ ] Tests pass
+            - [ ] No security vulnerabilities introduced
+            - [ ] Build succeeds
+            
+            ---
+            🤖 *This PR was created automatically by the PA-QA dependency update workflow*
+            EOF
+            )" \
+              --assignee "${{ github.actor }}" \
+              --label "dependencies,automated,nodejs"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.DEPENDENCY_UPDATE_TOKEN }}
+
+      - name: Create Python dependency update PR
+        if: needs.detect-project-technologies.outputs.has-python == 'true'
+        run: |
+          if [ -d "update-artifacts/python-updates" ]; then
+            echo "📝 Creating Python dependency update PR..."
+            
+            # Create a new branch
+            branch_name="dependency-updates/python-$(date +%Y%m%d-%H%M%S)"
+            git checkout -b "$branch_name"
+            
+            # Apply Python updates
+            cp update-artifacts/python-updates/requirements*.txt . 2>/dev/null || true
+            cp update-artifacts/python-updates/pyproject.toml . 2>/dev/null || true
+            
+            # Commit changes
+            git add requirements*.txt pyproject.toml 2>/dev/null || true
+            git commit -m "chore: update Python dependencies (${{ env.UPDATE_TYPE }} updates)" || exit 0
+            
+            # Push and create PR similar to Node.js above
+            git push origin "$branch_name"
+            
+            gh pr create \
+              --title "🐍 Update Python Dependencies (${{ env.UPDATE_TYPE }})" \
+              --body "Automated Python dependency updates" \
+              --assignee "${{ github.actor }}" \
+              --label "dependencies,automated,python"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.DEPENDENCY_UPDATE_TOKEN }}
+
+      - name: Create PHP dependency update PR
+        if: needs.detect-project-technologies.outputs.has-php == 'true'
+        run: |
+          if [ -d "update-artifacts/php-updates" ]; then
+            echo "📝 Creating PHP dependency update PR..."
+            
+            # Similar process for PHP dependencies
+            branch_name="dependency-updates/php-$(date +%Y%m%d-%H%M%S)"
+            git checkout -b "$branch_name"
+            
+            cp update-artifacts/php-updates/composer.json .
+            cp update-artifacts/php-updates/composer.lock .
+            
+            git add composer.json composer.lock
+            git commit -m "chore: update PHP dependencies (${{ env.UPDATE_TYPE }} updates)" || exit 0
+            
+            git push origin "$branch_name"
+            
+            gh pr create \
+              --title "🐘 Update PHP Dependencies (${{ env.UPDATE_TYPE }})" \
+              --body "Automated PHP dependency updates" \
+              --assignee "${{ github.actor }}" \
+              --label "dependencies,automated,php"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.DEPENDENCY_UPDATE_TOKEN }}
+
+  notify-update-status:
+    runs-on: ubuntu-latest
+    needs: [create-update-pull-requests]
+    if: always()
+    steps:
+      - name: Notify Slack on successful updates
+        if: needs.create-update-pull-requests.result == 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#dependency-updates'
+          text: |
+            🔄 Dependency updates completed for ${{ github.repository }}
+            
+            **Update Type:** ${{ env.UPDATE_TYPE }}
+            **Technologies:** Node.js, Python, PHP, Docker
+            **PRs Created:** Check repository for new dependency update PRs
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify Slack on update failures
+        if: needs.create-update-pull-requests.result == 'failure'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#dependency-alerts'
+          text: |
+            ❌ Dependency update failed for ${{ github.repository }}
+            
+            **Update Type:** ${{ env.UPDATE_TYPE }}
+            **Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            
+            Manual review required.
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

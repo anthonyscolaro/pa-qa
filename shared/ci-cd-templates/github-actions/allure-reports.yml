@@ -1,0 +1,684 @@
+name: Allure Reporting Pipeline
+
+on:
+  workflow_run:
+    workflows: ["React Testing Pipeline", "FastAPI Testing Pipeline", "WordPress Testing Pipeline", "Performance Testing Pipeline"]
+    types: [completed]
+  push:
+    branches: [main, develop]
+    paths:
+      - 'allure-results/**'
+      - '.github/workflows/allure-reports.yml'
+  schedule:
+    # Consolidate and clean up reports daily at 1 AM UTC
+    - cron: '0 1 * * *'
+  workflow_dispatch:
+    inputs:
+      report_type:
+        description: 'Type of report to generate'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - test-results
+          - performance
+          - security
+          - coverage
+      cleanup_old_reports:
+        description: 'Clean up old reports'
+        required: false
+        default: true
+        type: boolean
+      retention_days:
+        description: 'Number of days to keep reports'
+        required: false
+        default: '30'
+        type: string
+
+concurrency:
+  group: allure-reports
+  cancel-in-progress: false  # Don't cancel report generation
+
+env:
+  ALLURE_VERSION: 2.24.0
+  ALLURE_SERVER_URL: https://allure.projectassistant.ai
+  PROJECT_NAME: ${{ github.repository }}
+  RETENTION_DAYS: ${{ github.event.inputs.retention_days || '30' }}
+
+jobs:
+  detect-project-info:
+    runs-on: ubuntu-latest
+    outputs:
+      project-type: ${{ steps.detect.outputs.project-type }}
+      project-name: ${{ steps.detect.outputs.project-name }}
+      branch-name: ${{ steps.detect.outputs.branch-name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect project information
+        id: detect
+        run: |
+          # Detect project type
+          if [ -f package.json ] && grep -q '"react"' package.json; then
+            project_type="react"
+          elif [ -f requirements.txt ] && grep -q 'fastapi' requirements.txt; then
+            project_type="fastapi"
+          elif [ -f wp-config.php ] || ([ -f style.css ] && grep -q 'Theme Name' style.css); then
+            project_type="wordpress"
+          else
+            project_type="generic"
+          fi
+          
+          # Clean project name for Allure
+          project_name=$(echo "${GITHUB_REPOSITORY#*/}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g')
+          branch_name=$(echo "${GITHUB_REF_NAME}" | sed 's/[^a-zA-Z0-9-]/-/g')
+          
+          echo "project-type=$project_type" >> $GITHUB_OUTPUT
+          echo "project-name=$project_name" >> $GITHUB_OUTPUT
+          echo "branch-name=$branch_name" >> $GITHUB_OUTPUT
+
+  collect-test-results:
+    runs-on: ubuntu-latest
+    needs: detect-project-info
+    if: github.event.inputs.report_type == 'all' || github.event.inputs.report_type == 'test-results' || github.event.inputs.report_type == ''
+    outputs:
+      has-results: ${{ steps.check.outputs.has-results }}
+    steps:
+      - name: Download workflow artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: '*-test-results*'
+        continue-on-error: true
+
+      - name: Check for test results
+        id: check
+        run: |
+          if [ -d "artifacts" ] && [ "$(find artifacts -name "*.xml" -o -name "*.json" | wc -l)" -gt 0 ]; then
+            echo "has-results=true" >> $GITHUB_OUTPUT
+            echo "✅ Found test result artifacts"
+          else
+            echo "has-results=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No test result artifacts found"
+          fi
+
+      - name: Setup Allure CLI
+        if: steps.check.outputs.has-results == 'true'
+        run: |
+          wget -O allure.tgz "https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz"
+          tar -xzf allure.tgz
+          sudo mv allure-${ALLURE_VERSION} /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
+          allure --version
+
+      - name: Prepare Allure results
+        if: steps.check.outputs.has-results == 'true'
+        run: |
+          mkdir -p allure-results
+          
+          # Convert JUnit XML to Allure format
+          find artifacts -name "junit-*.xml" -type f | while read file; do
+            echo "Processing: $file"
+            cp "$file" allure-results/
+          done
+          
+          # Copy existing Allure results
+          find artifacts -name "allure-results" -type d | while read dir; do
+            echo "Copying Allure results from: $dir"
+            cp -r "$dir"/* allure-results/ 2>/dev/null || true
+          done
+          
+          # Convert coverage reports to Allure attachments
+          find artifacts -name "coverage.xml" -type f | while read file; do
+            echo "Processing coverage: $file"
+            cp "$file" allure-results/coverage-$(basename $(dirname "$file")).xml
+          done
+
+      - name: Add environment information
+        if: steps.check.outputs.has-results == 'true'
+        run: |
+          cat > allure-results/environment.properties << EOF
+          Project=${{ needs.detect-project-info.outputs.project-name }}
+          Branch=${{ needs.detect-project-info.outputs.branch-name }}
+          Build=${{ github.run_number }}
+          Commit=${{ github.sha }}
+          Author=${{ github.actor }}
+          Workflow=${{ github.workflow }}
+          Repository=${{ github.repository }}
+          Timestamp=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          ProjectType=${{ needs.detect-project-info.outputs.project-type }}
+          EOF
+
+      - name: Add execution metadata
+        if: steps.check.outputs.has-results == 'true'
+        run: |
+          cat > allure-results/executor.json << EOF
+          {
+            "name": "GitHub Actions",
+            "type": "github",
+            "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "buildOrder": ${{ github.run_number }},
+            "buildName": "Build #${{ github.run_number }}",
+            "buildUrl": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}",
+            "reportName": "${{ needs.detect-project-info.outputs.project-name }} Test Report",
+            "reportUrl": "${{ env.ALLURE_SERVER_URL }}/${{ needs.detect-project-info.outputs.project-name }}"
+          }
+          EOF
+
+      - name: Generate test categories
+        if: steps.check.outputs.has-results == 'true'
+        run: |
+          cat > allure-results/categories.json << EOF
+          [
+            {
+              "name": "Ignored tests",
+              "matchedStatuses": ["skipped"]
+            },
+            {
+              "name": "Infrastructure problems",
+              "matchedStatuses": ["broken", "failed"],
+              "messageRegex": ".*selenide.*|.*connection.*|.*timeout.*"
+            },
+            {
+              "name": "Outdated tests",
+              "matchedStatuses": ["broken"],
+              "traceRegex": ".*FileNotFoundException.*"
+            },
+            {
+              "name": "Product defects",
+              "matchedStatuses": ["failed"]
+            },
+            {
+              "name": "Test defects",
+              "matchedStatuses": ["broken"]
+            }
+          ]
+          EOF
+
+      - name: Upload processed results
+        if: steps.check.outputs.has-results == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-allure-results
+          path: allure-results/
+          retention-days: 7
+
+  collect-performance-results:
+    runs-on: ubuntu-latest
+    needs: detect-project-info
+    if: github.event.inputs.report_type == 'all' || github.event.inputs.report_type == 'performance' || github.event.inputs.report_type == ''
+    outputs:
+      has-performance: ${{ steps.check.outputs.has-performance }}
+    steps:
+      - name: Download performance artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: performance-artifacts
+          pattern: '*-performance-*'
+        continue-on-error: true
+
+      - name: Check for performance results
+        id: check
+        run: |
+          if [ -d "performance-artifacts" ] && [ "$(find performance-artifacts -name "*.json" -o -name "*.html" | wc -l)" -gt 0 ]; then
+            echo "has-performance=true" >> $GITHUB_OUTPUT
+            echo "✅ Found performance result artifacts"
+          else
+            echo "has-performance=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No performance result artifacts found"
+          fi
+
+      - name: Process performance results for Allure
+        if: steps.check.outputs.has-performance == 'true'
+        run: |
+          mkdir -p allure-performance-results
+          
+          # Convert Lighthouse results
+          find performance-artifacts -name "lighthouse-*.json" -type f | while read file; do
+            echo "Processing Lighthouse report: $file"
+            
+            # Extract key metrics and create Allure attachment
+            performance_score=$(jq -r '.lhr.categories.performance.score // 0' "$file" 2>/dev/null || echo "0")
+            accessibility_score=$(jq -r '.lhr.categories.accessibility.score // 0' "$file" 2>/dev/null || echo "0")
+            
+            cat > "allure-performance-results/lighthouse-$(basename "$file")" << EOF
+          {
+            "name": "Lighthouse Performance Report",
+            "status": "passed",
+            "start": $(date +%s)000,
+            "stop": $(date +%s)000,
+            "attachments": [
+              {
+                "name": "Lighthouse Report",
+                "type": "application/json",
+                "source": "$(basename "$file")"
+              }
+            ],
+            "parameters": [
+              {"name": "Performance Score", "value": "$performance_score"},
+              {"name": "Accessibility Score", "value": "$accessibility_score"}
+            ]
+          }
+          EOF
+            
+            cp "$file" "allure-performance-results/"
+          done
+          
+          # Convert K6 results
+          find performance-artifacts -name "k6-results-*.json" -type f | while read file; do
+            echo "Processing K6 report: $file"
+            
+            # Extract metrics from K6 results
+            avg_response_time=$(jq -r '.metrics.http_req_duration.values.avg // 0' "$file" 2>/dev/null || echo "0")
+            p95_response_time=$(jq -r '.metrics.http_req_duration.values.p95 // 0' "$file" 2>/dev/null || echo "0")
+            error_rate=$(jq -r '.metrics.http_req_failed.values.rate // 0' "$file" 2>/dev/null || echo "0")
+            
+            test_type=$(basename "$file" .json | sed 's/k6-results-//')
+            
+            cat > "allure-performance-results/k6-$(basename "$file")" << EOF
+          {
+            "name": "K6 Load Test - $test_type",
+            "status": "passed",
+            "start": $(date +%s)000,
+            "stop": $(date +%s)000,
+            "attachments": [
+              {
+                "name": "K6 Results",
+                "type": "application/json",
+                "source": "$(basename "$file")"
+              }
+            ],
+            "parameters": [
+              {"name": "Average Response Time", "value": "${avg_response_time}ms"},
+              {"name": "95th Percentile", "value": "${p95_response_time}ms"},
+              {"name": "Error Rate", "value": "${error_rate}%"}
+            ]
+          }
+          EOF
+            
+            cp "$file" "allure-performance-results/"
+          done
+
+      - name: Upload performance results
+        if: steps.check.outputs.has-performance == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-performance-results
+          path: allure-performance-results/
+          retention-days: 7
+
+  collect-security-results:
+    runs-on: ubuntu-latest
+    needs: detect-project-info
+    if: github.event.inputs.report_type == 'all' || github.event.inputs.report_type == 'security' || github.event.inputs.report_type == ''
+    outputs:
+      has-security: ${{ steps.check.outputs.has-security }}
+    steps:
+      - name: Download security artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: security-artifacts
+          pattern: '*-security-*'
+        continue-on-error: true
+
+      - name: Check for security results
+        id: check
+        run: |
+          if [ -d "security-artifacts" ] && [ "$(find security-artifacts -name "*.json" -o -name "*.sarif" | wc -l)" -gt 0 ]; then
+            echo "has-security=true" >> $GITHUB_OUTPUT
+            echo "✅ Found security scan artifacts"
+          else
+            echo "has-security=false" >> $GITHUB_OUTPUT
+            echo "ℹ️  No security scan artifacts found"
+          fi
+
+      - name: Process security results for Allure
+        if: steps.check.outputs.has-security == 'true'
+        run: |
+          mkdir -p allure-security-results
+          
+          # Process Snyk results
+          find security-artifacts -name "*snyk*.json" -type f | while read file; do
+            echo "Processing Snyk report: $file"
+            
+            vulnerability_count=$(jq -r '.vulnerabilities | length // 0' "$file" 2>/dev/null || echo "0")
+            high_severity=$(jq -r '[.vulnerabilities[] | select(.severity == "high")] | length // 0' "$file" 2>/dev/null || echo "0")
+            
+            status="passed"
+            if [ "$high_severity" -gt 0 ]; then
+              status="failed"
+            fi
+            
+            cat > "allure-security-results/snyk-$(basename "$file")" << EOF
+          {
+            "name": "Snyk Security Scan",
+            "status": "$status",
+            "start": $(date +%s)000,
+            "stop": $(date +%s)000,
+            "attachments": [
+              {
+                "name": "Snyk Report",
+                "type": "application/json",
+                "source": "$(basename "$file")"
+              }
+            ],
+            "parameters": [
+              {"name": "Total Vulnerabilities", "value": "$vulnerability_count"},
+              {"name": "High Severity", "value": "$high_severity"}
+            ]
+          }
+          EOF
+            
+            cp "$file" "allure-security-results/"
+          done
+
+      - name: Upload security results
+        if: steps.check.outputs.has-security == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: processed-security-results
+          path: allure-security-results/
+          retention-days: 7
+
+  generate-allure-report:
+    runs-on: ubuntu-latest
+    needs: [detect-project-info, collect-test-results, collect-performance-results, collect-security-results]
+    if: always() && (needs.collect-test-results.outputs.has-results == 'true' || needs.collect-performance-results.outputs.has-performance == 'true' || needs.collect-security-results.outputs.has-security == 'true')
+    steps:
+      - name: Setup Allure CLI
+        run: |
+          wget -O allure.tgz "https://github.com/allure-framework/allure2/releases/download/${ALLURE_VERSION}/allure-${ALLURE_VERSION}.tgz"
+          tar -xzf allure.tgz
+          sudo mv allure-${ALLURE_VERSION} /opt/allure
+          sudo ln -s /opt/allure/bin/allure /usr/local/bin/allure
+          allure --version
+
+      - name: Download all processed results
+        uses: actions/download-artifact@v4
+        with:
+          path: all-results
+          pattern: 'processed-*-results'
+        continue-on-error: true
+
+      - name: Merge all results
+        run: |
+          mkdir -p merged-allure-results
+          
+          # Merge all processed results
+          if [ -d "all-results" ]; then
+            find all-results -type f \( -name "*.json" -o -name "*.xml" -o -name "*.properties" \) -exec cp {} merged-allure-results/ \;
+            echo "✅ Merged $(find merged-allure-results -type f | wc -l) result files"
+          else
+            echo "ℹ️  No processed results found to merge"
+          fi
+
+      - name: Download history from previous reports
+        run: |
+          mkdir -p merged-allure-results/history
+          
+          # Download previous report history
+          curl -s -f "${{ env.ALLURE_SERVER_URL }}/api/projects/${{ needs.detect-project-info.outputs.project-name }}/history" \
+            -H "Authorization: Bearer ${{ secrets.ALLURE_TOKEN }}" \
+            -o history.tar.gz && tar -xzf history.tar.gz -C merged-allure-results/history/ || true
+        continue-on-error: true
+
+      - name: Generate Allure report
+        run: |
+          if [ "$(find merged-allure-results -name "*.xml" -o -name "*.json" | grep -v history | wc -l)" -eq 0 ]; then
+            echo "No test results found, creating placeholder report"
+            
+            cat > merged-allure-results/placeholder-test-result.json << EOF
+          {
+            "name": "No Tests Found",
+            "status": "skipped",
+            "start": $(date +%s)000,
+            "stop": $(date +%s)000,
+            "uuid": "$(uuidgen)",
+            "labels": [
+              {"name": "framework", "value": "placeholder"}
+            ]
+          }
+          EOF
+          fi
+          
+          # Generate the report
+          allure generate merged-allure-results --output allure-report --clean
+          
+          echo "📊 Allure report generated successfully"
+
+      - name: Customize report
+        run: |
+          # Add custom logo and styling
+          if [ -f "allure-report/index.html" ]; then
+            # Inject custom CSS and branding
+            cat >> allure-report/styles.css << EOF
+          .side-nav__brand {
+            background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==') no-repeat center;
+            background-size: contain;
+          }
+          .side-nav__brand:before {
+            content: "PA-QA Reports";
+            font-weight: bold;
+            color: #fff;
+          }
+          EOF
+          fi
+
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: allure-report-${{ needs.detect-project-info.outputs.project-name }}-${{ github.run_number }}
+          path: allure-report/
+          retention-days: ${{ env.RETENTION_DAYS }}
+
+      - name: Calculate report metrics
+        id: metrics
+        run: |
+          if [ -f "allure-report/widgets/summary.json" ]; then
+            total=$(jq -r '.statistic.total // 0' allure-report/widgets/summary.json)
+            passed=$(jq -r '.statistic.passed // 0' allure-report/widgets/summary.json)
+            failed=$(jq -r '.statistic.failed // 0' allure-report/widgets/summary.json)
+            broken=$(jq -r '.statistic.broken // 0' allure-report/widgets/summary.json)
+            skipped=$(jq -r '.statistic.skipped // 0' allure-report/widgets/summary.json)
+            
+            pass_rate=0
+            if [ "$total" -gt 0 ]; then
+              pass_rate=$(echo "scale=2; $passed * 100 / $total" | bc -l 2>/dev/null || echo "0")
+            fi
+            
+            echo "total=$total" >> $GITHUB_OUTPUT
+            echo "passed=$passed" >> $GITHUB_OUTPUT
+            echo "failed=$failed" >> $GITHUB_OUTPUT
+            echo "broken=$broken" >> $GITHUB_OUTPUT
+            echo "skipped=$skipped" >> $GITHUB_OUTPUT
+            echo "pass-rate=$pass_rate" >> $GITHUB_OUTPUT
+          else
+            echo "No summary data found"
+            echo "total=0" >> $GITHUB_OUTPUT
+            echo "passed=0" >> $GITHUB_OUTPUT
+            echo "failed=0" >> $GITHUB_OUTPUT
+            echo "broken=0" >> $GITHUB_OUTPUT
+            echo "skipped=0" >> $GITHUB_OUTPUT
+            echo "pass-rate=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload to Allure server
+        run: |
+          # Upload to centralized Allure server
+          echo "📤 Uploading report to Allure server..."
+          
+          # Create project if it doesn't exist
+          curl -X POST "${{ env.ALLURE_SERVER_URL }}/api/projects" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.ALLURE_TOKEN }}" \
+            -d '{
+              "id": "${{ needs.detect-project-info.outputs.project-name }}",
+              "name": "${{ needs.detect-project-info.outputs.project-name }}",
+              "description": "Automated tests for ${{ github.repository }}"
+            }' || true
+          
+          # Upload results
+          tar -czf allure-results.tar.gz -C merged-allure-results .
+          
+          curl -X POST "${{ env.ALLURE_SERVER_URL }}/api/projects/${{ needs.detect-project-info.outputs.project-name }}/reports" \
+            -H "Authorization: Bearer ${{ secrets.ALLURE_TOKEN }}" \
+            -F "results=@allure-results.tar.gz" \
+            -F "build=${{ github.run_number }}" \
+            -F "branch=${{ needs.detect-project-info.outputs.branch-name }}" \
+            -F "commit=${{ github.sha }}" \
+            -F "author=${{ github.actor }}"
+          
+          echo "✅ Report uploaded to ${{ env.ALLURE_SERVER_URL }}/${{ needs.detect-project-info.outputs.project-name }}"
+        continue-on-error: true
+
+      - name: Deploy to GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./allure-report
+          destination_dir: reports/${{ needs.detect-project-info.outputs.project-name }}
+          keep_files: true
+
+  cleanup-old-reports:
+    runs-on: ubuntu-latest
+    needs: [detect-project-info, generate-allure-report]
+    if: always() && (github.event.inputs.cleanup_old_reports == 'true' || github.event_name == 'schedule')
+    steps:
+      - name: Cleanup old artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const retentionDays = parseInt('${{ env.RETENTION_DAYS }}');
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
+            
+            console.log(`Cleaning up artifacts older than ${retentionDays} days (before ${cutoffDate})`);
+            
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner,
+              repo,
+              per_page: 100
+            });
+            
+            let deletedCount = 0;
+            
+            for (const artifact of artifacts.data.artifacts) {
+              const createdAt = new Date(artifact.created_at);
+              
+              if (createdAt < cutoffDate && artifact.name.includes('allure-report')) {
+                try {
+                  await github.rest.actions.deleteArtifact({
+                    owner,
+                    repo,
+                    artifact_id: artifact.id
+                  });
+                  console.log(`Deleted artifact: ${artifact.name} (${artifact.created_at})`);
+                  deletedCount++;
+                } catch (error) {
+                  console.log(`Failed to delete artifact ${artifact.name}: ${error.message}`);
+                }
+              }
+            }
+            
+            console.log(`Cleanup completed. Deleted ${deletedCount} old artifacts.`);
+
+      - name: Cleanup server reports
+        run: |
+          echo "🧹 Cleaning up old reports on Allure server..."
+          
+          # Get list of old reports
+          curl -s "${{ env.ALLURE_SERVER_URL }}/api/projects/${{ needs.detect-project-info.outputs.project-name }}/reports" \
+            -H "Authorization: Bearer ${{ secrets.ALLURE_TOKEN }}" | \
+            jq -r --arg days "${{ env.RETENTION_DAYS }}" '
+              .[] | 
+              select(.createdAt | fromdateiso8601 < (now - ($days | tonumber * 86400))) | 
+              .id
+            ' | while read report_id; do
+              if [ -n "$report_id" ]; then
+                echo "Deleting report: $report_id"
+                curl -X DELETE "${{ env.ALLURE_SERVER_URL }}/api/projects/${{ needs.detect-project-info.outputs.project-name }}/reports/$report_id" \
+                  -H "Authorization: Bearer ${{ secrets.ALLURE_TOKEN }}"
+              fi
+            done
+        continue-on-error: true
+
+  notify-report-status:
+    runs-on: ubuntu-latest
+    needs: [detect-project-info, generate-allure-report]
+    if: always() && needs.generate-allure-report.result != 'skipped'
+    steps:
+      - name: Create GitHub comment for PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const reportUrl = `${{ env.ALLURE_SERVER_URL }}/${{ needs.detect-project-info.outputs.project-name }}`;
+            const ghPagesUrl = `https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/reports/${{ needs.detect-project-info.outputs.project-name }}`;
+            
+            const metrics = {
+              total: '${{ needs.generate-allure-report.outputs.total || 0 }}',
+              passed: '${{ needs.generate-allure-report.outputs.passed || 0 }}',
+              failed: '${{ needs.generate-allure-report.outputs.failed || 0 }}',
+              broken: '${{ needs.generate-allure-report.outputs.broken || 0 }}',
+              skipped: '${{ needs.generate-allure-report.outputs.skipped || 0 }}',
+              passRate: '${{ needs.generate-allure-report.outputs.pass-rate || 0 }}'
+            };
+            
+            const body = `## 📊 Test Results Summary
+            
+            **Pass Rate:** ${metrics.passRate}%
+            
+            | Status | Count |
+            |--------|-------|
+            | ✅ Passed | ${metrics.passed} |
+            | ❌ Failed | ${metrics.failed} |
+            | 🔥 Broken | ${metrics.broken} |
+            | ⏭️ Skipped | ${metrics.skipped} |
+            | **Total** | **${metrics.total}** |
+            
+            📈 **Reports:**
+            - [Allure Server](${reportUrl})
+            - [GitHub Pages](${ghPagesUrl})
+            
+            *Report generated at: ${new Date().toISOString()}*`;
+            
+            if (context.issue.number) {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: body
+              });
+            }
+
+      - name: Notify Slack
+        if: needs.generate-allure-report.result == 'success'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#qa-reports'
+          text: |
+            📊 Allure report generated for ${{ needs.detect-project-info.outputs.project-name }}
+            
+            **Pass Rate:** ${{ needs.generate-allure-report.outputs.pass-rate || 0 }}%
+            **Total Tests:** ${{ needs.generate-allure-report.outputs.total || 0 }}
+            **Report:** ${{ env.ALLURE_SERVER_URL }}/${{ needs.detect-project-info.outputs.project-name }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+      - name: Notify on failure
+        if: needs.generate-allure-report.result == 'failure'
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#qa-alerts'
+          text: |
+            ❌ Failed to generate Allure report for ${{ needs.detect-project-info.outputs.project-name }}
+            
+            **Branch:** ${{ needs.detect-project-info.outputs.branch-name }}
+            **Workflow:** ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

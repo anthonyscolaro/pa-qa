@@ -1,0 +1,601 @@
+<?php
+
+// Laravel Framework Stubs for PHPStan
+// These stubs help PHPStan understand Laravel-specific classes and methods
+
+namespace Illuminate\Foundation {
+    class Application {
+        public function make(string $abstract, array $parameters = []): mixed {}
+        public function bind(string $abstract, \Closure|string|null $concrete = null, bool $shared = false): void {}
+        public function singleton(string $abstract, \Closure|string|null $concrete = null): void {}
+        public function instance(string $abstract, mixed $instance): mixed {}
+        public function when(string $concrete): mixed {}
+        public function bound(string $abstract): bool {}
+        public function resolved(string $abstract): bool {}
+        public function isShared(string $abstract): bool {}
+        public function tag(array $abstracts, array|mixed $tags): void {}
+        public function tagged(string $tag): iterable {}
+        public function alias(string $abstract, string $alias): void {}
+        public function isAlias(string $name): bool {}
+        public function getAlias(string $abstract): string {}
+        public function getBindings(): array {}
+        public function environment(...$environments): string|bool {}
+        public function isProduction(): bool {}
+        public function isLocal(): bool {}
+        public function runningInConsole(): bool {}
+    }
+}
+
+namespace Illuminate\Database\Eloquent {
+    abstract class Model {
+        protected $table;
+        protected $primaryKey = 'id';
+        protected $keyType = 'int';
+        public $incrementing = true;
+        protected $with = [];
+        protected $withCount = [];
+        protected $perPage = 15;
+        public $exists = false;
+        public $wasRecentlyCreated = false;
+        protected $attributes = [];
+        protected $original = [];
+        protected $changes = [];
+        protected $casts = [];
+        protected $classCastCache = [];
+        protected $dates = [];
+        protected $dateFormat;
+        protected $appends = [];
+        protected $dispatchesEvents = [];
+        protected $observables = [];
+        protected $relations = [];
+        protected $touches = [];
+        public $timestamps = true;
+        protected $hidden = [];
+        protected $visible = [];
+        protected $fillable = [];
+        protected $guarded = ['*'];
+        
+        public function __construct(array $attributes = []) {}
+        public static function create(array $attributes = []): static {}
+        public static function find(mixed $id, array $columns = ['*']): ?static {}
+        public static function findOrFail(mixed $id, array $columns = ['*']): static {}
+        public static function findMany(mixed $ids, array $columns = ['*']): Collection {}
+        public static function where(string $column, mixed $operator = null, mixed $value = null, string $boolean = 'and'): Builder {}
+        public static function whereIn(string $column, mixed $values, string $boolean = 'and', bool $not = false): Builder {}
+        public static function whereNotIn(string $column, mixed $values, string $boolean = 'and'): Builder {}
+        public static function whereNull(string $column, string $boolean = 'and', bool $not = false): Builder {}
+        public static function whereNotNull(string $column, string $boolean = 'and'): Builder {}
+        public static function all(array $columns = ['*']): Collection {}
+        public static function get(array $columns = ['*']): Collection {}
+        public static function first(array $columns = ['*']): ?static {}
+        public static function firstOrFail(array $columns = ['*']): static {}
+        public static function count(string $columns = '*'): int {}
+        public static function max(string $column): mixed {}
+        public static function min(string $column): mixed {}
+        public static function sum(string $column): mixed {}
+        public static function avg(string $column): mixed {}
+        public static function exists(): bool {}
+        public static function doesntExist(): bool {}
+        public function save(array $options = []): bool {}
+        public function update(array $attributes = [], array $options = []): bool {}
+        public function delete(): ?bool {}
+        public function forceDelete(): ?bool {}
+        public function restore(): bool {}
+        public function fresh(array $with = []): ?static {}
+        public function refresh(): static {}
+        public function replicate(array $except = null): static {}
+        public function is(Model $model): bool {}
+        public function isNot(Model $model): bool {}
+        public function getKey(): mixed {}
+        public function getKeyName(): string {}
+        public function getKeyType(): string {}
+        public function getIncrementing(): bool {}
+        public function getTable(): string {}
+        public function setTable(string $table): static {}
+        public function getAttribute(string $key): mixed {}
+        public function setAttribute(string $key, mixed $value): static {}
+        public function getOriginal(string $key = null, mixed $default = null): mixed {}
+        public function getChanges(): array {}
+        public function isDirty(array|string $attributes = null): bool {}
+        public function isClean(array|string $attributes = null): bool {}
+        public function wasChanged(array|string $attributes = null): bool {}
+        public function fill(array $attributes): static {}
+        public function fillable(array $fillable): static {}
+        public function guard(array $guarded): static {}
+        public function unguard(bool $state = true): void {}
+        public function reguard(): void {}
+        public function isFillable(string $key): bool {}
+        public function isGuarded(string $key): bool {}
+        public function append(array|string $attributes): static {}
+        public function setHidden(array $hidden): static {}
+        public function setVisible(array $visible): static {}
+        public function makeVisible(array|string $attributes): static {}
+        public function makeHidden(array|string $attributes): static {}
+        public function toArray(): array {}
+        public function toJson(int $options = 0): string {}
+        public function jsonSerialize(): array {}
+        public function getRouteKey(): mixed {}
+        public function getRouteKeyName(): string {}
+        public function resolveRouteBinding(mixed $value, string $field = null): ?Model {}
+        public function resolveChildRouteBinding(string $childType, mixed $value, string $field): ?Model {}
+    }
+
+    class Builder {
+        public function where(string $column, mixed $operator = null, mixed $value = null, string $boolean = 'and'): static {}
+        public function orWhere(string $column, mixed $operator = null, mixed $value = null): static {}
+        public function whereIn(string $column, mixed $values, string $boolean = 'and', bool $not = false): static {}
+        public function whereNotIn(string $column, mixed $values, string $boolean = 'and'): static {}
+        public function whereNull(string $column, string $boolean = 'and', bool $not = false): static {}
+        public function whereNotNull(string $column, string $boolean = 'and'): static {}
+        public function whereBetween(string $column, array $values, string $boolean = 'and', bool $not = false): static {}
+        public function whereNotBetween(string $column, array $values, string $boolean = 'and'): static {}
+        public function whereDate(string $column, string $operator, mixed $value = null, string $boolean = 'and'): static {}
+        public function whereTime(string $column, string $operator, mixed $value = null, string $boolean = 'and'): static {}
+        public function whereDay(string $column, string $operator, mixed $value = null, string $boolean = 'and'): static {}
+        public function whereMonth(string $column, string $operator, mixed $value = null, string $boolean = 'and'): static {}
+        public function whereYear(string $column, string $operator, mixed $value = null, string $boolean = 'and'): static {}
+        public function whereColumn(array|string $first, string $operator = null, string $second = null, string $boolean = 'and'): static {}
+        public function orderBy(string $column, string $direction = 'asc'): static {}
+        public function orderByDesc(string $column): static {}
+        public function latest(string $column = 'created_at'): static {}
+        public function oldest(string $column = 'created_at'): static {}
+        public function inRandomOrder(string $seed = ''): static {}
+        public function groupBy(...$groups): static {}
+        public function having(string $column, string $operator = null, mixed $value = null, string $boolean = 'and'): static {}
+        public function orHaving(string $column, string $operator = null, mixed $value = null): static {}
+        public function limit(int $value): static {}
+        public function take(int $value): static {}
+        public function offset(int $value): static {}
+        public function skip(int $value): static {}
+        public function forPage(int $page, int $perPage = 15): static {}
+        public function get(array $columns = ['*']): Collection {}
+        public function first(array $columns = ['*']): ?Model {}
+        public function firstOrFail(array $columns = ['*']): Model {}
+        public function firstOr(array $columns = ['*'], \Closure $callback = null): mixed {}
+        public function find(mixed $id, array $columns = ['*']): Collection|Model|null {}
+        public function findOrFail(mixed $id, array $columns = ['*']): Collection|Model {}
+        public function findMany(mixed $ids, array $columns = ['*']): Collection {}
+        public function count(string $columns = '*'): int {}
+        public function max(string $column): mixed {}
+        public function min(string $column): mixed {}
+        public function sum(string $column): mixed {}
+        public function avg(string $column): mixed {}
+        public function exists(): bool {}
+        public function doesntExist(): bool {}
+        public function update(array $values): int {}
+        public function delete(): mixed {}
+        public function forceDelete(): mixed {}
+        public function with(mixed $relations): static {}
+        public function without(mixed $relations): static {}
+        public function withOnly(mixed $relations): static {}
+        public function withCount(mixed $relations): static {}
+        public function has(string $relation, string $operator = '>=', int $count = 1, string $boolean = 'and', \Closure $callback = null): static {}
+        public function doesntHave(string $relation, string $boolean = 'and', \Closure $callback = null): static {}
+        public function whereHas(string $relation, \Closure $callback = null, string $operator = '>=', int $count = 1): static {}
+        public function whereDoesntHave(string $relation, \Closure $callback = null): static {}
+        public function orWhereHas(string $relation, \Closure $callback = null, string $operator = '>=', int $count = 1): static {}
+        public function orWhereDoesntHave(string $relation, \Closure $callback = null): static {}
+        public function paginate(int $perPage = null, array $columns = ['*'], string $pageName = 'page', int $page = null): mixed {}
+        public function simplePaginate(int $perPage = null, array $columns = ['*'], string $pageName = 'page', int $page = null): mixed {}
+        public function chunk(int $count, callable $callback): bool {}
+        public function chunkById(int $count, callable $callback, string $column = null, string $alias = null): bool {}
+        public function each(callable $callback, int $count = 1000): bool {}
+        public function lazy(int $chunkSize = 1000): mixed {}
+        public function lazyById(int $chunkSize = 1000, string $column = null, string $alias = null): mixed {}
+        public function cursor(): mixed {}
+        public function pluck(string $column, string $key = null): mixed {}
+        public function create(array $attributes = []): Model {}
+        public function forceCreate(array $attributes): Model {}
+        public function updateOrCreate(array $attributes, array $values = []): Model {}
+        public function firstOrCreate(array $attributes = [], array $values = []): Model {}
+        public function firstOrNew(array $attributes = [], array $values = []): Model {}
+    }
+
+    class Collection implements \ArrayAccess, \Countable, \IteratorAggregate {
+        public function all(): array {}
+        public function avg(callable|string $callback = null): mixed {}
+        public function median(string $key = null): mixed {}
+        public function mode(string $key = null): array|null {}
+        public function collapse(): static {}
+        public function contains(mixed $key, mixed $operator = null, mixed $value = null): bool {}
+        public function containsStrict(mixed $key, mixed $value = null): bool {}
+        public function doesntContain(mixed $key, mixed $operator = null, mixed $value = null): bool {}
+        public function diff(mixed $items): static {}
+        public function diffUsing(mixed $items, callable $callback): static {}
+        public function diffAssoc(mixed $items): static {}
+        public function diffAssocUsing(mixed $items, callable $callback): static {}
+        public function diffKeys(mixed $items): static {}
+        public function diffKeysUsing(mixed $items, callable $callback): static {}
+        public function duplicates(callable|string $callback = null, bool $strict = false): static {}
+        public function duplicatesStrict(callable|string $callback = null): static {}
+        public function except(mixed $keys): static {}
+        public function filter(callable $callback = null): static {}
+        public function first(callable $callback = null, mixed $default = null): mixed {}
+        public function flatten(int $depth = INF): static {}
+        public function flip(): static {}
+        public function forget(array|string $keys): static {}
+        public function forPage(int $page, int $perPage): static {}
+        public function get(mixed $key, mixed $default = null): mixed {}
+        public function groupBy(array|callable|string $groupBy, bool $preserveKeys = false): static {}
+        public function keyBy(callable|string $keyBy): static {}
+        public function has(mixed $key): bool {}
+        public function hasAny(mixed $key): bool {}
+        public function implode(string $value, string $glue = null): string {}
+        public function intersect(mixed $items): static {}
+        public function intersectByKeys(mixed $items): static {}
+        public function isEmpty(): bool {}
+        public function isNotEmpty(): bool {}
+        public function join(string $glue, string $finalGlue = ''): string {}
+        public function keys(): static {}
+        public function last(callable $callback = null, mixed $default = null): mixed {}
+        public function map(callable $callback): static {}
+        public function mapToDictionary(callable $callback): static {}
+        public function mapWithKeys(callable $callback): static {}
+        public function merge(mixed $items): static {}
+        public function mergeRecursive(mixed $items): static {}
+        public function combine(mixed $values): static {}
+        public function union(mixed $items): static {}
+        public function nth(int $step, int $offset = 0): static {}
+        public function only(mixed $keys): static {}
+        public function pop(int $count = 1): mixed {}
+        public function prepend(mixed $value, mixed $key = null): static {}
+        public function push(...$values): static {}
+        public function concat(iterable $source): static {}
+        public function pull(mixed $key, mixed $default = null): mixed {}
+        public function put(mixed $key, mixed $value): static {}
+        public function random(int $number = null): mixed {}
+        public function reduce(callable $callback, mixed $initial = null): mixed {}
+        public function reject(callable|mixed $callback = true): static {}
+        public function replace(mixed $items): static {}
+        public function replaceRecursive(mixed $items): static {}
+        public function reverse(): static {}
+        public function search(mixed $value, bool $strict = false): mixed {}
+        public function shift(int $count = 1): mixed {}
+        public function shuffle(int $seed = null): static {}
+        public function skip(int $count): static {}
+        public function skipUntil(mixed $value): static {}
+        public function skipWhile(mixed $value): static {}
+        public function slice(int $offset, int $length = null): static {}
+        public function split(int $numberOfGroups): static {}
+        public function splitIn(int $numberOfGroups): static {}
+        public function chunk(int $size): static {}
+        public function chunkWhile(callable $callback): static {}
+        public function sort(callable $callback = null): static {}
+        public function sortBy(callable|string $callback, int $options = SORT_REGULAR, bool $descending = false): static {}
+        public function sortByDesc(callable|string $callback, int $options = SORT_REGULAR): static {}
+        public function sortKeys(int $options = SORT_REGULAR, bool $descending = false): static {}
+        public function sortKeysDesc(int $options = SORT_REGULAR): static {}
+        public function splice(int $offset, int $length = null, mixed $replacement = []): static {}
+        public function take(int $limit): static {}
+        public function takeUntil(mixed $value): static {}
+        public function takeWhile(mixed $value): static {}
+        public function transform(callable $callback): static {}
+        public function tap(callable $callback): static {}
+        public function unique(callable|string $key = null, bool $strict = false): static {}
+        public function uniqueStrict(callable|string $key = null): static {}
+        public function values(): static {}
+        public function zip(mixed $items): static {}
+        public function pad(int $size, mixed $value): static {}
+        public function countBy(callable|string $countBy = null): static {}
+        public function count(): int {}
+        public function toArray(): array {}
+        public function jsonSerialize(): array {}
+        public function toJson(int $options = 0): string {}
+        public function getIterator(): \ArrayIterator {}
+        public function getCachingIterator(int $flags = \CachingIterator::CALL_TOSTRING): \CachingIterator {}
+        public function offsetExists(mixed $key): bool {}
+        public function offsetGet(mixed $key): mixed {}
+        public function offsetSet(mixed $key, mixed $value): void {}
+        public function offsetUnset(mixed $key): void {}
+    }
+}
+
+namespace Illuminate\Http {
+    class Request {
+        public function input(string $key = null, mixed $default = null): mixed {}
+        public function get(string $key, mixed $default = null): mixed {}
+        public function query(string $key = null, mixed $default = null): mixed {}
+        public function post(string $key = null, mixed $default = null): mixed {}
+        public function cookie(string $key = null, mixed $default = null): mixed {}
+        public function file(string $key = null, mixed $default = null): mixed {}
+        public function files(): array {}
+        public function allFiles(): array {}
+        public function hasFile(string $key): bool {}
+        public function has(array|string $key): bool {}
+        public function hasAny(array|string $keys): bool {}
+        public function filled(array|string $key): bool {}
+        public function anyFilled(array|string $keys): bool {}
+        public function missing(array|string $key): bool {}
+        public function all(array $keys = null): array {}
+        public function only(array|mixed $keys): array {}
+        public function except(array|mixed $keys): array {}
+        public function validate(array $rules, array $messages = [], array $customAttributes = []): array {}
+        public function validateWithBag(string $errorBag, array $rules, array $messages = [], array $customAttributes = []): array {}
+        public function user(string $guard = null): mixed {}
+        public function bearerToken(): ?string {}
+        public function ip(): string {}
+        public function ips(): array {}
+        public function userAgent(): string {}
+        public function header(string $key = null, mixed $default = null): mixed {}
+        public function headers(): mixed {}
+        public function server(string $key = null, mixed $default = null): mixed {}
+        public function method(): string {}
+        public function isMethod(string $method): bool {}
+        public function path(): string {}
+        public function decodedPath(): string {}
+        public function url(): string {}
+        public function fullUrl(): string {}
+        public function fullUrlWithQuery(array $query): string {}
+        public function fullUrlWithoutQuery(array|string $keys): string {}
+        public function is(...$patterns): bool {}
+        public function routeIs(...$patterns): bool {}
+        public function fullUrlIs(...$patterns): bool {}
+        public function ajax(): bool {}
+        public function pjax(): bool {}
+        public function prefetch(): bool {}
+        public function secure(): bool {}
+        public function wantsJson(): bool {}
+        public function acceptsJson(): bool {}
+        public function expectsJson(): bool {}
+        public function accepts(array|string $contentTypes): bool {}
+        public function prefers(array|string $contentTypes): string|null {}
+        public function acceptsAnyContentType(): bool {}
+        public function acceptsHtml(): bool {}
+        public function format(string $default = 'html'): string {}
+        public function session(): mixed {}
+        public function route(string $param = null, mixed $default = null): mixed {}
+        public function hasSession(): bool {}
+        public function setLaravelSession(mixed $session): void {}
+        public function merge(array $input): static {}
+        public function mergeIfMissing(array $input): static {}
+        public function replace(array $input): static {}
+        public function json(string $key = null, mixed $default = null): mixed {}
+        public function getContent(): string {}
+        public function getETags(): array {}
+        public function isNoCache(): bool {}
+        public function getPreferredLanguage(array $locales = null): string|null {}
+        public function getLanguages(): array {}
+        public function getCharsets(): array {}
+        public function getEncodings(): array {}
+        public function getAcceptableContentTypes(): array {}
+    }
+
+    class Response {
+        public function __construct(mixed $content = '', int $status = 200, array $headers = []) {}
+        public function setContent(mixed $content): static {}
+        public function getContent(): string|false {}
+        public function setStatusCode(int $code, string $text = null): static {}
+        public function getStatusCode(): int {}
+        public function setCharset(string $charset): static {}
+        public function getCharset(): string|null {}
+        public function isCacheable(): bool {}
+        public function isFresh(mixed $request): bool {}
+        public function isValidateable(): bool {}
+        public function setPrivate(): static {}
+        public function setPublic(): static {}
+        public function setImmutable(bool $immutable = true): static {}
+        public function isImmutable(): bool {}
+        public function setTtl(int $seconds): static {}
+        public function getTtl(): int|null {}
+        public function setClientTtl(int $seconds): static {}
+        public function getAge(): int {}
+        public function expire(): static {}
+        public function getDate(): \DateTime|null {}
+        public function setDate(\DateTime $date): static {}
+        public function getMaxAge(): int|null {}
+        public function setMaxAge(int $value): static {}
+        public function setSharedMaxAge(int $value): static {}
+        public function getVary(): array {}
+        public function setVary(array|string $headers, bool $replace = true): static {}
+        public function isNotModified(mixed $request): bool {}
+        public function isInvalid(): bool {}
+        public function isInformational(): bool {}
+        public function isSuccessful(): bool {}
+        public function isRedirection(): bool {}
+        public function isClientError(): bool {}
+        public function isServerError(): bool {}
+        public function isOk(): bool {}
+        public function isForbidden(): bool {}
+        public function isNotFound(): bool {}
+        public function isRedirect(string $location = null): bool {}
+        public function isEmpty(): bool {}
+        public function header(string $key, array|string $values, bool $replace = true): static {}
+        public function withHeaders(array $headers): static {}
+        public function cookie(mixed $cookie): static {}
+        public function withCookie(mixed $cookie): static {}
+        public function withoutCookie(string $name, string $path = null, string $domain = null): static {}
+    }
+
+    class JsonResponse extends Response {
+        public function __construct(mixed $data = null, int $status = 200, array $headers = [], int $options = 0) {}
+        public function setData(mixed $data = []): static {}
+        public function getData(bool $assoc = false, int $depth = 512): mixed {}
+        public function setEncodingOptions(int $options): static {}
+        public function getEncodingOptions(): int {}
+        public function setJsonFlag(int $flag): static {}
+        public function unsetJsonFlag(int $flag): static {}
+    }
+
+    class RedirectResponse extends Response {
+        public function __construct(string $url, int $status = 302, array $headers = []) {}
+        public function getTargetUrl(): string {}
+        public function setTargetUrl(string $url): static {}
+        public function setIntendedUrl(string $url): static {}
+        public function getIntendedUrl(): string|null {}
+        public function with(array|string $key, mixed $value = null): static {}
+        public function withInput(array $input = null): static {}
+        public function withErrors(mixed $provider, string $key = 'default'): static {}
+        public function withCookies(array $cookies): static {}
+        public function withHeaders(array $headers): static {}
+    }
+}
+
+namespace Illuminate\Support {
+    class Collection implements \ArrayAccess, \Countable, \IteratorAggregate, \JsonSerializable {
+        public function __construct(mixed $items = []) {}
+        public static function make(mixed $items = []): static {}
+        public static function wrap(mixed $value): static {}
+        public static function unwrap(mixed $value): array {}
+        public static function empty(): static {}
+        public static function times(int $number, callable $callback = null): static {}
+        public static function range(int $from, int $to): static {}
+        public function all(): array {}
+        public function avg(callable|string $callback = null): mixed {}
+        public function median(string $key = null): mixed {}
+        public function mode(string $key = null): array|null {}
+        public function collapse(): static {}
+        public function contains(mixed $key, mixed $operator = null, mixed $value = null): bool {}
+        public function containsStrict(mixed $key, mixed $value = null): bool {}
+        public function doesntContain(mixed $key, mixed $operator = null, mixed $value = null): bool {}
+        public function crossJoin(...$lists): static {}
+        public function dd(...$args): void {}
+        public function dump(): static {}
+        public function diff(mixed $items): static {}
+        public function diffUsing(mixed $items, callable $callback): static {}
+        public function diffAssoc(mixed $items): static {}
+        public function diffAssocUsing(mixed $items, callable $callback): static {}
+        public function diffKeys(mixed $items): static {}
+        public function diffKeysUsing(mixed $items, callable $callback): static {}
+        public function duplicates(callable|string $callback = null, bool $strict = false): static {}
+        public function duplicatesStrict(callable|string $callback = null): static {}
+        public function each(callable $callback): static {}
+        public function eachSpread(callable $callback): static {}
+        public function every(mixed $key, mixed $operator = null, mixed $value = null): bool {}
+        public function except(mixed $keys): static {}
+        public function filter(callable $callback = null): static {}
+        public function when(mixed $value, callable $callback = null, callable $default = null): static {}
+        public function whenEmpty(callable $callback, callable $default = null): static {}
+        public function whenNotEmpty(callable $callback, callable $default = null): static {}
+        public function unless(mixed $value, callable $callback = null, callable $default = null): static {}
+        public function unlessEmpty(callable $callback, callable $default = null): static {}
+        public function unlessNotEmpty(callable $callback, callable $default = null): static {}
+        public function where(string $key, mixed $operator = null, mixed $value = null): static {}
+        public function whereStrict(string $key, mixed $value): static {}
+        public function whereIn(string $key, mixed $values, bool $strict = false): static {}
+        public function whereInStrict(string $key, mixed $values): static {}
+        public function whereNotIn(string $key, mixed $values, bool $strict = false): static {}
+        public function whereNotInStrict(string $key, mixed $values): static {}
+        public function whereInstanceOf(string $type): static {}
+        public function first(callable $callback = null, mixed $default = null): mixed {}
+        public function firstWhere(string $key, mixed $operator = null, mixed $value = null): mixed {}
+        public function flatten(int $depth = INF): static {}
+        public function flip(): static {}
+        public function forget(array|string $keys): static {}
+        public function forPage(int $page, int $perPage): static {}
+        public function get(mixed $key, mixed $default = null): mixed {}
+        public function groupBy(array|callable|string $groupBy, bool $preserveKeys = false): static {}
+        public function keyBy(callable|string $keyBy): static {}
+        public function has(mixed $key): bool {}
+        public function hasAny(mixed $key): bool {}
+        public function implode(string $value, string $glue = null): string {}
+        public function intersect(mixed $items): static {}
+        public function intersectByKeys(mixed $items): static {}
+        public function isEmpty(): bool {}
+        public function isNotEmpty(): bool {}
+        public function join(string $glue, string $finalGlue = ''): string {}
+        public function keys(): static {}
+        public function last(callable $callback = null, mixed $default = null): mixed {}
+        public function pluck(array|string $value, string $key = null): static {}
+        public function map(callable $callback): static {}
+        public function mapToDictionary(callable $callback): static {}
+        public function mapWithKeys(callable $callback): static {}
+        public function merge(mixed $items): static {}
+        public function mergeRecursive(mixed $items): static {}
+        public function combine(mixed $values): static {}
+        public function union(mixed $items): static {}
+        public function nth(int $step, int $offset = 0): static {}
+        public function only(mixed $keys): static {}
+        public function pop(int $count = 1): mixed {}
+        public function prepend(mixed $value, mixed $key = null): static {}
+        public function push(...$values): static {}
+        public function concat(iterable $source): static {}
+        public function pull(mixed $key, mixed $default = null): mixed {}
+        public function put(mixed $key, mixed $value): static {}
+        public function random(int $number = null): mixed {}
+        public function reduce(callable $callback, mixed $initial = null): mixed {}
+        public function reject(callable|mixed $callback = true): static {}
+        public function replace(mixed $items): static {}
+        public function replaceRecursive(mixed $items): static {}
+        public function reverse(): static {}
+        public function search(mixed $value, bool $strict = false): mixed {}
+        public function shift(int $count = 1): mixed {}
+        public function shuffle(int $seed = null): static {}
+        public function skip(int $count): static {}
+        public function skipUntil(mixed $value): static {}
+        public function skipWhile(mixed $value): static {}
+        public function slice(int $offset, int $length = null): static {}
+        public function split(int $numberOfGroups): static {}
+        public function splitIn(int $numberOfGroups): static {}
+        public function chunk(int $size): static {}
+        public function chunkWhile(callable $callback): static {}
+        public function sort(callable $callback = null): static {}
+        public function sortBy(callable|string $callback, int $options = SORT_REGULAR, bool $descending = false): static {}
+        public function sortByDesc(callable|string $callback, int $options = SORT_REGULAR): static {}
+        public function sortKeys(int $options = SORT_REGULAR, bool $descending = false): static {}
+        public function sortKeysDesc(int $options = SORT_REGULAR): static {}
+        public function splice(int $offset, int $length = null, mixed $replacement = []): static {}
+        public function take(int $limit): static {}
+        public function takeUntil(mixed $value): static {}
+        public function takeWhile(mixed $value): static {}
+        public function transform(callable $callback): static {}
+        public function unique(callable|string $key = null, bool $strict = false): static {}
+        public function uniqueStrict(callable|string $key = null): static {}
+        public function values(): static {}
+        public function zip(mixed $items): static {}
+        public function pad(int $size, mixed $value): static {}
+        public function countBy(callable|string $countBy = null): static {}
+        public function add(mixed $item): static {}
+        public function toBase(): static {}
+        public function offsetExists(mixed $key): bool {}
+        public function offsetGet(mixed $key): mixed {}
+        public function offsetSet(mixed $key, mixed $value): void {}
+        public function offsetUnset(mixed $key): void {}
+        public function toArray(): array {}
+        public function jsonSerialize(): array {}
+        public function toJson(int $options = 0): string {}
+        public function getIterator(): \ArrayIterator {}
+        public function count(): int {}
+        public function countBy(callable|string $countBy = null): static {}
+        public function getCachingIterator(int $flags = \CachingIterator::CALL_TOSTRING): \CachingIterator {}
+    }
+
+    class Str {
+        public static function after(string $subject, string $search): string {}
+        public static function afterLast(string $subject, string $search): string {}
+        public static function ascii(string $value, string $language = 'en'): string {}
+        public static function before(string $subject, string $search): string {}
+        public static function beforeLast(string $subject, string $search): string {}
+        public static function between(string $subject, string $from, string $to): string {}
+        public static function betweenFirst(string $subject, string $from, string $to): string {}
+        public static function camel(string $value): string {}
+        public static function contains(string $haystack, array|string $needles): bool {}
+        public static function containsAll(string $haystack, array $needles): bool {}
+        public static function endsWith(string $haystack, array|string $needles): bool {}
+        public static function finish(string $value, string $cap): string {}
+        public static function is(array|string $pattern, string $value): bool {}
+        public static function isAscii(string $value): bool {}
+        public static function isUuid(string $value): bool {}
+        public static function kebab(string $value): string {}
+        public static function length(string $value, string $encoding = null): int {}
+        public static function limit(string $value, int $limit = 100, string $end = '...'): string {}
+        public static function lower(string $value): string {}
+        public static function words(string $value, int $words = 100, string $end = '...'): string {}
+        public static function plural(string $value, int $count = 2): string {}
+        public static function random(int $length = 16): string {}
+        public static function replaceArray(string $search, array $replace, string $subject): string {}
+        public static function replaceFirst(string $search, string $replace, string $subject): string {}
+        public static function replaceLast(string $search, string $replace, string $subject): string {}
+        public static function singular(string $value): string {}
+        public static function slug(string $title, string $separator = '-', string $language = 'en'): string {}
+        public static function snake(string $value, string $delimiter = '_'): string {}
+        public static function start(string $value, string $prefix): string {}
+        public static function startsWith(string $haystack, array|string $needles): bool {}
+        public static function studly(string $value): string {}
+        public static function substr(string $string, int $start, int $length = null): string {}
+        public static function substrCount(string $haystack, string $needle, int $offset = 0, int $length = null): int {}
+        public static function title(string $value): string {}
+        public static function ucfirst(string $string): string {}
+        public static function upper(string $value): string {}
+        public static function uuid(): mixed {}
+    }
+}

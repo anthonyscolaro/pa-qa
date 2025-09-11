@@ -1,0 +1,123 @@
+<?xml version="1.0"?>
+<!-- PHPUnit configuration for WordPress testing (2024-2025 best practices) -->
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
+    bootstrap="tests/bootstrap.php"
+    backupGlobals="false"
+    colors="true"
+    convertDeprecationsToExceptions="true"
+    convertErrorsToExceptions="true"
+    convertNoticesToExceptions="true"
+    convertWarningsToExceptions="true"
+    processIsolation="false"
+    stopOnFailure="false"
+    stopOnError="false"
+    stopOnIncomplete="false"
+    stopOnSkipped="false"
+    timeoutForSmallTests="1"
+    timeoutForMediumTests="10"
+    timeoutForLargeTests="60"
+    verbose="true"
+>
+    <!-- Test Suites -->
+    <testsuites>
+        <!-- Unit tests - isolated component testing -->
+        <testsuite name="unit">
+            <directory suffix="Test.php">tests/unit</directory>
+            <exclude>tests/unit/external</exclude>
+        </testsuite>
+        
+        <!-- Integration tests - WordPress hooks, database, etc -->
+        <testsuite name="integration">
+            <directory suffix="Test.php">tests/integration</directory>
+        </testsuite>
+        
+        <!-- REST API tests -->
+        <testsuite name="rest-api">
+            <directory suffix="Test.php">tests/rest-api</directory>
+        </testsuite>
+        
+        <!-- Multisite specific tests -->
+        <testsuite name="multisite">
+            <directory suffix="Test.php">tests/multisite</directory>
+        </testsuite>
+        
+        <!-- Ajax handler tests -->
+        <testsuite name="ajax">
+            <directory suffix="Test.php">tests/ajax</directory>
+        </testsuite>
+    </testsuites>
+    
+    <!-- Code Coverage Configuration -->
+    <coverage 
+        includeUncoveredFiles="true"
+        processUncoveredFiles="true"
+        pathCoverage="false"
+        cacheDirectory=".phpunit.cache/coverage"
+    >
+        <include>
+            <directory suffix=".php">./includes</directory>
+            <directory suffix=".php">./src</directory>
+            <directory suffix=".php">./admin</directory>
+            <directory suffix=".php">./public</directory>
+        </include>
+        <exclude>
+            <directory>./tests</directory>
+            <directory>./vendor</directory>
+            <directory>./node_modules</directory>
+            <directory>./build</directory>
+            <file>./includes/deprecated.php</file>
+        </exclude>
+        <report>
+            <html outputDirectory="coverage/html"/>
+            <text outputFile="coverage/coverage.txt" showOnlySummary="true"/>
+            <clover outputFile="coverage/clover.xml"/>
+            <cobertura outputFile="coverage/cobertura.xml"/>
+        </report>
+    </coverage>
+    
+    <!-- Logging -->
+    <logging>
+        <junit outputFile="test-results/junit.xml"/>
+        <testdoxHtml outputFile="test-results/testdox.html"/>
+        <testdoxText outputFile="test-results/testdox.txt"/>
+    </logging>
+    
+    <!-- PHP Configuration -->
+    <php>
+        <!-- WordPress Test Environment Variables -->
+        <env name="WP_TESTS_DOMAIN" value="example.org"/>
+        <env name="WP_TESTS_EMAIL" value="admin@example.org"/>
+        <env name="WP_TESTS_TITLE" value="Test Blog"/>
+        <env name="WP_TESTS_SKIP_INSTALL" value="false"/>
+        
+        <!-- Database Configuration -->
+        <env name="WP_TESTS_DB_NAME" value="wordpress_test"/>
+        <env name="WP_TESTS_DB_USER" value="root"/>
+        <env name="WP_TESTS_DB_PASS" value="password"/>
+        <env name="WP_TESTS_DB_HOST" value="localhost"/>
+        <env name="WP_TESTS_TABLE_PREFIX" value="wptests_"/>
+        
+        <!-- Multisite Configuration -->
+        <env name="WP_TESTS_MULTISITE" value="0"/>
+        <env name="WP_TESTS_SUBDOMAIN_INSTALL" value="0"/>
+        
+        <!-- Plugin/Theme Configuration -->
+        <env name="WP_TESTS_FORCE_KNOWN_BUGS" value="false"/>
+        <env name="WP_TESTS_FORCE_CORE_UPDATES" value="false"/>
+        
+        <!-- PHP Settings -->
+        <ini name="display_errors" value="On"/>
+        <ini name="display_startup_errors" value="On"/>
+        <ini name="error_reporting" value="E_ALL"/>
+        <ini name="memory_limit" value="256M"/>
+        <ini name="max_execution_time" value="0"/>
+    </php>
+    
+    <!-- Extensions (for PHPUnit 9.x compatibility) -->
+    <extensions>
+        <!-- WordPress specific test listener -->
+        <extension class="Yoast\PHPUnitPolyfills\TestListeners\TestListenerDefaultImplementation"/>
+    </extensions>
+</phpunit>

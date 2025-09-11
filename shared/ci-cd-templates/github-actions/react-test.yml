@@ -1,0 +1,449 @@
+name: React Testing Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - '.github/workflows/react-test.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_ENV: test
+  CI: true
+  FORCE_COLOR: true
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.changes.outputs.tests }}
+      src: ${{ steps.changes.outputs.src }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            tests:
+              - 'tests/**'
+              - 'src/**'
+              - 'package.json'
+              - 'package-lock.json'
+              - 'vite.config.ts'
+              - 'vitest.config.ts'
+            src:
+              - 'src/**'
+
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run ESLint
+        run: npm run lint -- --format=json --output-file=eslint-report.json
+        continue-on-error: true
+
+      - name: Run TypeScript check
+        run: npm run type-check
+
+      - name: Upload ESLint results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: eslint-results-node-${{ matrix.node-version }}
+          path: eslint-report.json
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Run unit tests (shard ${{ matrix.shard }})
+        run: |
+          npm run test:unit -- \
+            --shard=${{ matrix.shard }}/4 \
+            --coverage \
+            --reporter=verbose \
+            --reporter=junit \
+            --outputFile.junit=./test-results/junit-unit-${{ matrix.shard }}.xml \
+            --coverage.reporter=lcov \
+            --coverage.reporter=json \
+            --coverage.reporter=text
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results-node-${{ matrix.node-version }}-shard-${{ matrix.shard }}
+          path: |
+            test-results/
+            coverage/
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage/lcov.info
+          flags: unit-tests,node-${{ matrix.node-version }}
+          name: unit-tests-node-${{ matrix.node-version }}-shard-${{ matrix.shard }}
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        node-version: [18, 20, 22]
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Setup test database
+        run: |
+          npm run db:migrate:test
+          npm run db:seed:test
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379
+
+      - name: Run integration tests
+        run: |
+          npm run test:integration -- \
+            --coverage \
+            --reporter=verbose \
+            --reporter=junit \
+            --outputFile.junit=./test-results/junit-integration.xml
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results-node-${{ matrix.node-version }}
+          path: |
+            test-results/
+            coverage/
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage/lcov.info
+          flags: integration-tests,node-${{ matrix.node-version }}
+          name: integration-tests-node-${{ matrix.node-version }}
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        node-version: [20] # E2E tests only on LTS
+        browser: [chromium, firefox, webkit]
+        shard: [1, 2, 3]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps ${{ matrix.browser }}
+
+      - name: Build application
+        run: npm run build:test
+
+      - name: Start application
+        run: |
+          npm run start:test &
+          npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Run E2E tests
+        run: |
+          npx playwright test \
+            --project=${{ matrix.browser }} \
+            --shard=${{ matrix.shard }}/3 \
+            --reporter=junit \
+            --output-dir=test-results/e2e
+        env:
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: junit-e2e-${{ matrix.browser }}-shard-${{ matrix.shard }}.xml
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results-${{ matrix.browser }}-shard-${{ matrix.shard }}
+          path: |
+            test-results/
+            playwright-report/
+
+  accessibility-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Build application
+        run: npm run build:test
+
+      - name: Start application
+        run: |
+          npm run start:test &
+          npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Run accessibility tests
+        run: |
+          npm run test:a11y -- \
+            --reporter=junit \
+            --outputFile=./test-results/junit-a11y.xml
+
+      - name: Upload accessibility results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: accessibility-test-results
+          path: test-results/
+
+  visual-regression:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.src == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build application
+        run: npm run build:test
+
+      - name: Start application
+        run: |
+          npm run start:test &
+          npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Run visual regression tests
+        run: npm run test:visual
+
+      - name: Upload visual test results
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-regression-results
+          path: |
+            test-results/
+            playwright-report/
+
+  bundle-analysis:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.src == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --prefer-offline --no-audit
+
+      - name: Build and analyze bundle
+        run: |
+          npm run build
+          npm run analyze:bundle -- --json > bundle-stats.json
+
+      - name: Upload bundle analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: bundle-analysis
+          path: |
+            bundle-stats.json
+            dist/
+
+      - name: Bundle size check
+        uses: preactjs/compressed-size-action@v2
+        with:
+          repo-token: '${{ secrets.GITHUB_TOKEN }}'
+          pattern: './dist/**/*.{js,css}'
+          exclude: '{./dist/**/*.map,**/*.chunk.*.js}'
+
+  collect-results:
+    runs-on: ubuntu-latest
+    needs: [lint-and-typecheck, unit-tests, integration-tests, e2e-tests, accessibility-tests]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Merge test results
+        run: |
+          mkdir -p merged-results/allure-results
+          find artifacts -name "junit-*.xml" -exec cp {} merged-results/ \;
+          find artifacts -name "*.json" -exec cp {} merged-results/allure-results/ \;
+          find artifacts -name "coverage" -type d -exec cp -r {} merged-results/ \;
+
+      - name: Generate Allure Report
+        uses: simple-elf/allure-report-action@master
+        if: always()
+        with:
+          allure_results: merged-results/allure-results
+          allure_report: allure-report
+          gh_pages: allure-results
+
+      - name: Upload merged results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pa-qa-react-test-results
+          path: |
+            merged-results/
+            allure-report/
+          retention-days: 30
+
+      - name: Test Summary
+        uses: test-summary/action@v2
+        if: always()
+        with:
+          paths: "merged-results/junit-*.xml"
+
+  notify-status:
+    runs-on: ubuntu-latest
+    needs: [collect-results]
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Notify Slack on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#qa-alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          
+      - name: Notify Slack on success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#qa-alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

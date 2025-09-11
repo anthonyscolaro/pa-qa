@@ -1,0 +1,234 @@
+# PA-QA Python Pre-commit Configuration
+# Ensures code quality standards are enforced before commits
+# Run: pre-commit install to activate
+
+repos:
+  # Ruff - Fast Python linter (replaces flake8, isort, pyupgrade, etc.)
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.1.5
+    hooks:
+      # Linter
+      - id: ruff
+        name: ruff-linter
+        description: "Run Ruff linter"
+        args: [--fix, --exit-non-zero-on-fix]
+        types: [python]
+      # Formatter (replaces isort)
+      - id: ruff-format
+        name: ruff-format
+        description: "Run Ruff formatter"
+        types: [python]
+
+  # Black - Code formatter
+  - repo: https://github.com/psf/black
+    rev: 23.9.1
+    hooks:
+      - id: black
+        name: black-formatter
+        description: "Format Python code with Black"
+        language_version: python3
+        args: [--line-length=88]
+
+  # MyPy - Static type checking
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.6.1
+    hooks:
+      - id: mypy
+        name: mypy-type-check
+        description: "Run MyPy static type checking"
+        additional_dependencies: 
+          - types-requests
+          - types-redis
+          - types-PyYAML
+          - types-python-dateutil
+          - types-setuptools
+          - pydantic
+          - fastapi
+          - django-stubs
+          - djangorestframework-stubs
+        args: [--strict, --ignore-missing-imports]
+        exclude: ^(migrations/|tests/|conftest\.py)
+
+  # Bandit - Security linting
+  - repo: https://github.com/PyCQA/bandit
+    rev: 1.7.5
+    hooks:
+      - id: bandit
+        name: bandit-security
+        description: "Run Bandit security linter"
+        args: [-r, --format=custom, --msg-template="{abspath}:{line}: {test_id}[bandit]: {severity}: {msg}"]
+        exclude: ^tests/
+
+  # Safety - Check for known security vulnerabilities
+  - repo: https://github.com/Lucas-C/pre-commit-hooks-safety
+    rev: v1.3.2
+    hooks:
+      - id: python-safety-dependencies-check
+        name: safety-check
+        description: "Check for security vulnerabilities in dependencies"
+        files: requirements.*\.txt$
+
+  # Built-in pre-commit hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      # General file checks
+      - id: trailing-whitespace
+        name: trailing-whitespace
+        description: "Remove trailing whitespace"
+        args: [--markdown-linebreak-ext=md]
+      
+      - id: end-of-file-fixer
+        name: end-of-file-fixer
+        description: "Ensure files end with newline"
+      
+      - id: check-yaml
+        name: check-yaml
+        description: "Check YAML syntax"
+        args: [--allow-multiple-documents]
+      
+      - id: check-toml
+        name: check-toml
+        description: "Check TOML syntax"
+      
+      - id: check-json
+        name: check-json
+        description: "Check JSON syntax"
+      
+      - id: check-xml
+        name: check-xml
+        description: "Check XML syntax"
+      
+      # Python specific checks
+      - id: check-ast
+        name: check-ast
+        description: "Check Python AST"
+      
+      - id: check-builtin-literals
+        name: check-builtin-literals
+        description: "Check for builtin type constructor use instead of literals"
+      
+      - id: check-case-conflict
+        name: check-case-conflict
+        description: "Check for case conflicts in filenames"
+      
+      - id: check-docstring-first
+        name: check-docstring-first
+        description: "Check docstring is first in files"
+      
+      - id: debug-statements
+        name: debug-statements
+        description: "Check for debugger imports and breakpoints"
+      
+      - id: detect-private-key
+        name: detect-private-key
+        description: "Detect private keys"
+      
+      # File size and merge conflict checks
+      - id: check-added-large-files
+        name: check-added-large-files
+        description: "Check for large files"
+        args: [--maxkb=1000]
+      
+      - id: check-merge-conflict
+        name: check-merge-conflict
+        description: "Check for merge conflict markers"
+      
+      # Prevent commits to main
+      - id: no-commit-to-branch
+        name: no-commit-to-main
+        description: "Prevent direct commits to main/master"
+        args: [--branch, main, --branch, master, --branch, production]
+
+  # Django specific hooks (uncomment if using Django)
+  # - repo: https://github.com/adamchainz/django-upgrade
+  #   rev: 1.15.0
+  #   hooks:
+  #     - id: django-upgrade
+  #       name: django-upgrade
+  #       description: "Upgrade Django syntax"
+  #       args: [--target-version, "4.2"]
+
+  # Pytest - Run tests before commit (optional, can be slow)
+  # - repo: local
+  #   hooks:
+  #     - id: pytest-check
+  #       name: pytest-check
+  #       description: "Run pytest tests"
+  #       entry: pytest
+  #       language: system
+  #       pass_filenames: false
+  #       always_run: true
+  #       args: [--tb=short, -q]
+
+  # Documentation checks
+  - repo: https://github.com/pycqa/pydocstyle
+    rev: 6.3.0
+    hooks:
+      - id: pydocstyle
+        name: pydocstyle
+        description: "Check docstring style"
+        args: [--convention=google, --add-ignore=D100,D104,D107]
+        exclude: ^(tests/|migrations/|conftest\.py)
+
+  # Commit message format (conventional commits)
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v3.0.0
+    hooks:
+      - id: conventional-pre-commit
+        name: conventional-commit
+        description: "Check commit message format"
+        stages: [commit-msg]
+        args: [optional-scope, feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert]
+
+  # Poetry dependency management (uncomment if using Poetry)
+  # - repo: https://github.com/python-poetry/poetry
+  #   rev: 1.6.1
+  #   hooks:
+  #     - id: poetry-check
+  #       name: poetry-check
+  #       description: "Check Poetry configuration"
+  #     - id: poetry-lock
+  #       name: poetry-lock
+  #       description: "Update Poetry lock file"
+
+# Configuration for pre-commit hooks
+default_stages: [commit]
+minimum_pre_commit_version: "3.0.0"
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false
+
+# Exclude patterns
+exclude: |
+  (?x)^(
+    migrations/.*|
+    \.git/.*|
+    \.tox/.*|
+    \.venv/.*|
+    venv/.*|
+    \.pytest_cache/.*|
+    \.mypy_cache/.*|
+    \.ruff_cache/.*|
+    __pycache__/.*|
+    build/.*|
+    dist/.*|
+    \.eggs/.*|
+    node_modules/.*|
+    static/.*|
+    media/.*|
+    locale/.*
+  )$
+
+# Fail fast - stop on first failure
+fail_fast: false

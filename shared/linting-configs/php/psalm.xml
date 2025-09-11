@@ -1,0 +1,292 @@
+<?xml version="1.0"?>
+<psalm
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns="https://getpsalm.org/schema/config"
+    xsi:schemaLocation="https://getpsalm.org/schema/config vendor/vimeo/psalm/config.xsd"
+    name="PA-QA Psalm Configuration"
+    useDocblockTypes="true"
+    useDocblockPropertyTypes="true"
+    throwExceptionOnError="false"
+    hideExternalErrors="false"
+    resolveFromConfigFile="true"
+    xmlns:php="http://php.net/manual/"
+    errorLevel="1"
+    strictBinaryOperands="true"
+    rememberPropertyAssignmentsAfterCall="true"
+    checkForThrowsDocblock="true"
+    checkForThrowsInGlobalScope="true"
+    ignoreInternalFunctionFalseReturn="false"
+    ignoreInternalFunctionNullReturn="false"
+    totallyTyped="false"
+    allowCoercionFromStringToClassConst="true"
+    allowStringToStandInForClass="true"
+    memoizeMethodCallResults="true"
+    hoistConstants="true"
+    addParamTypehints="true"
+    checkForThrowsDocblock="true"
+    cacheDirectory="build/psalm"
+    allowPhpStormGenerics="true"
+    serializer="compact"
+    autoloader="vendor/autoload.php"
+    findUnusedVariablesAndParams="true"
+    findUnusedCode="true"
+    restrictReturnTypes="true"
+    usePhpDocMethodsWithoutMagicCall="false"
+    usePhpDocPropertiesWithoutMagicCall="false"
+    reportMixedIssues="true"
+    phpVersion="8.1"
+>
+    <!-- Project paths -->
+    <projectFiles>
+        <directory name="src" />
+        <directory name="app" />
+        <directory name="tests" />
+        <directory name="config" />
+        <directory name="database" />
+        <directory name="routes" />
+        <ignoreFiles>
+            <directory name="vendor" />
+            <directory name="node_modules" />
+            <directory name="storage" />
+            <directory name="bootstrap/cache" />
+            <directory name="public" />
+            <directory name="build" />
+            <directory name="dist" />
+            <file name="database/migrations/*.php" />
+            <file name="*.min.js" />
+            <file name="*.min.css" />
+        </ignoreFiles>
+    </projectFiles>
+
+    <!-- Psalm plugins -->
+    <plugins>
+        <!-- Laravel plugin -->
+        <pluginClass class="Psalm\LaravelPlugin\Plugin" />
+        
+        <!-- PHPUnit plugin -->
+        <pluginClass class="Psalm\PhpUnitPlugin\Plugin" />
+        
+        <!-- Common PHP plugins -->
+        <pluginClass class="Psalm\PhpDocPlugin\Plugin" />
+    </plugins>
+
+    <!-- Issue handlers -->
+    <issueHandlers>
+        <!-- Security issues - always report -->
+        <ArgumentTypeCoercion errorLevel="error" />
+        <AssignmentToVoid errorLevel="error" />
+        <DeprecatedConstant errorLevel="error" />
+        <DeprecatedFunction errorLevel="error" />
+        <DeprecatedMethod errorLevel="error" />
+        <DeprecatedProperty errorLevel="error" />
+        <DeprecatedClass errorLevel="error" />
+        <DeprecatedInterface errorLevel="error" />
+        <DeprecatedTrait errorLevel="error" />
+        
+        <!-- Type errors -->
+        <InvalidArgument errorLevel="error" />
+        <InvalidArrayAccess errorLevel="error" />
+        <InvalidArrayAssignment errorLevel="error" />
+        <InvalidArrayOffset errorLevel="error" />
+        <InvalidCast errorLevel="error" />
+        <InvalidClone errorLevel="error" />
+        <InvalidFunctionCall errorLevel="error" />
+        <InvalidMethodCall errorLevel="error" />
+        <InvalidOperand errorLevel="error" />
+        <InvalidPropertyAssignment errorLevel="error" />
+        <InvalidPropertyFetch errorLevel="error" />
+        <InvalidReturnStatement errorLevel="error" />
+        <InvalidReturnType errorLevel="error" />
+        <InvalidScalarArgument errorLevel="error" />
+        <InvalidStringClass errorLevel="error" />
+        <InvalidThrow errorLevel="error" />
+
+        <!-- Null handling -->
+        <NullArgument errorLevel="error" />
+        <NullArrayAccess errorLevel="error" />
+        <NullArrayOffset errorLevel="error" />
+        <NullFunctionCall errorLevel="error" />
+        <NullIterator errorLevel="error" />
+        <NullMethodCall errorLevel="error" />
+        <NullOperand errorLevel="error" />
+        <NullPropertyAssignment errorLevel="error" />
+        <NullPropertyFetch errorLevel="error" />
+        <NullReference errorLevel="error" />
+
+        <!-- Undefined variables and properties -->
+        <UndefinedClass errorLevel="error" />
+        <UndefinedConstant errorLevel="error" />
+        <UndefinedFunction errorLevel="error" />
+        <UndefinedGlobalVariable errorLevel="error" />
+        <UndefinedMethod errorLevel="error" />
+        <UndefinedProperty errorLevel="error" />
+        <UndefinedPropertyAssignment errorLevel="error" />
+        <UndefinedPropertyFetch errorLevel="error" />
+        <UndefinedThisPropertyAssignment errorLevel="error" />
+        <UndefinedThisPropertyFetch errorLevel="error" />
+        <UndefinedTrait errorLevel="error" />
+        <UndefinedVariable errorLevel="error" />
+
+        <!-- Mixed types - be strict -->
+        <MixedArgument errorLevel="error" />
+        <MixedArrayAccess errorLevel="error" />
+        <MixedArrayAssignment errorLevel="error" />
+        <MixedArrayOffset errorLevel="error" />
+        <MixedAssignment errorLevel="error" />
+        <MixedFunctionCall errorLevel="error" />
+        <MixedInferredReturnType errorLevel="error" />
+        <MixedMethodCall errorLevel="error" />
+        <MixedOperand errorLevel="error" />
+        <MixedPropertyAssignment errorLevel="error" />
+        <MixedPropertyFetch errorLevel="error" />
+        <MixedReturnStatement errorLevel="error" />
+        <MixedStringOffsetAssignment errorLevel="info" />
+
+        <!-- Unused code -->
+        <UnusedClass errorLevel="info" />
+        <UnusedClosureParam errorLevel="info" />
+        <UnusedFunctionCall errorLevel="info" />
+        <UnusedMethod errorLevel="info" />
+        <UnusedParam errorLevel="info" />
+        <UnusedProperty errorLevel="info" />
+        <UnusedVariable errorLevel="info" />
+        <UnusedConstructor errorLevel="info" />
+
+        <!-- Possible errors -->
+        <PossiblyFalseArgument errorLevel="error" />
+        <PossiblyFalseIterator errorLevel="error" />
+        <PossiblyFalseOperand errorLevel="error" />
+        <PossiblyFalsePropertyAssignmentValue errorLevel="error" />
+        <PossiblyFalseReference errorLevel="error" />
+        <PossiblyInvalidArgument errorLevel="error" />
+        <PossiblyInvalidArrayAccess errorLevel="error" />
+        <PossiblyInvalidArrayAssignment errorLevel="error" />
+        <PossiblyInvalidArrayOffset errorLevel="error" />
+        <PossiblyInvalidCast errorLevel="error" />
+        <PossiblyInvalidFunctionCall errorLevel="error" />
+        <PossiblyInvalidIterator errorLevel="error" />
+        <PossiblyInvalidMethodCall errorLevel="error" />
+        <PossiblyInvalidOperand errorLevel="error" />
+        <PossiblyInvalidPropertyAssignment errorLevel="error" />
+        <PossiblyInvalidPropertyAssignmentValue errorLevel="error" />
+        <PossiblyInvalidPropertyFetch errorLevel="error" />
+        <PossiblyNullArgument errorLevel="error" />
+        <PossiblyNullArrayAccess errorLevel="error" />
+        <PossiblyNullArrayAssignment errorLevel="error" />
+        <PossiblyNullArrayOffset errorLevel="error" />
+        <PossiblyNullFunctionCall errorLevel="error" />
+        <PossiblyNullIterator errorLevel="error" />
+        <PossiblyNullMethodCall errorLevel="error" />
+        <PossiblyNullOperand errorLevel="error" />
+        <PossiblyNullPropertyAssignment errorLevel="error" />
+        <PossiblyNullPropertyAssignmentValue errorLevel="error" />
+        <PossiblyNullPropertyFetch errorLevel="error" />
+        <PossiblyNullReference errorLevel="error" />
+        <PossiblyUndefinedGlobalVariable errorLevel="error" />
+        <PossiblyUndefinedVariable errorLevel="error" />
+        <PossiblyUndefinedArrayOffset errorLevel="error" />
+        <PossiblyUndefinedMethod errorLevel="error" />
+
+        <!-- Less strict for common patterns -->
+        <PropertyNotSetInConstructor errorLevel="info" />
+        <MissingConstructor errorLevel="info" />
+        <MissingClosureReturnType errorLevel="info" />
+        <MissingReturnType errorLevel="info" />
+        <MissingParamType errorLevel="info" />
+        <MissingPropertyType errorLevel="info" />
+
+        <!-- Framework specific allowances -->
+        <!-- Laravel Model magic methods -->
+        <UndefinedMagicMethod errorLevel="suppress">
+            <referencedMethod name="Illuminate\Database\Eloquent\Model::*" />
+            <referencedMethod name="Illuminate\Database\Eloquent\Builder::*" />
+            <referencedMethod name="Illuminate\Database\Query\Builder::*" />
+        </UndefinedMagicMethod>
+
+        <!-- WordPress global functions -->
+        <UndefinedFunction errorLevel="suppress">
+            <referencedFunction name="wp_*" />
+            <referencedFunction name="get_*" />
+            <referencedFunction name="add_*" />
+            <referencedFunction name="remove_*" />
+            <referencedFunction name="apply_*" />
+            <referencedFunction name="do_*" />
+            <referencedFunction name="is_*" />
+            <referencedFunction name="has_*" />
+            <referencedFunction name="current_*" />
+            <referencedFunction name="esc_*" />
+            <referencedFunction name="sanitize_*" />
+        </UndefinedFunction>
+
+        <!-- PHPUnit test methods -->
+        <UndefinedMethod errorLevel="suppress">
+            <referencedMethod name="PHPUnit\Framework\TestCase::assert*" />
+            <referencedMethod name="PHPUnit\Framework\TestCase::expect*" />
+            <referencedMethod name="PHPUnit\Framework\TestCase::createMock" />
+            <referencedMethod name="PHPUnit\Framework\TestCase::createPartialMock" />
+        </UndefinedMethod>
+
+        <!-- Common third-party patterns -->
+        <TooManyArguments errorLevel="info" />
+        <TooFewArguments errorLevel="error" />
+        <MethodSignatureMismatch errorLevel="error" />
+        <OverriddenMethodAccess errorLevel="error" />
+        <ImpureMethodCall errorLevel="info" />
+        <ImpurePropertyAssignment errorLevel="info" />
+    </issueHandlers>
+
+    <!-- Stubs for external dependencies -->
+    <stubs>
+        <file name="stubs/wordpress.phpstub" />
+        <file name="stubs/laravel.phpstub" />
+        <file name="stubs/common.phpstub" />
+    </stubs>
+
+    <!-- Global constants and functions -->
+    <globals>
+        <!-- WordPress globals -->
+        <var name="$wpdb" type="wpdb" />
+        <var name="$wp_query" type="WP_Query" />
+        <var name="$wp_rewrite" type="WP_Rewrite" />
+        <var name="$wp" type="WP" />
+        <var name="$wp_the_query" type="WP_Query" />
+        <var name="$wp_scripts" type="WP_Scripts" />
+        <var name="$wp_styles" type="WP_Styles" />
+        <var name="$current_user" type="WP_User" />
+        <var name="$authordata" type="WP_User" />
+        <var name="$currentday" type="string" />
+        <var name="$currentmonth" type="string" />
+        <var name="$page" type="int" />
+        <var name="$pages" type="array" />
+        <var name="$multipage" type="bool" />
+        <var name="$more" type="bool" />
+        <var name="$numpages" type="int" />
+    </globals>
+
+    <!-- Type aliases -->
+    <typeAliases>
+        <typeAlias name="WordPressUser" type="WP_User|false" />
+        <typeAlias name="WordPressPost" type="WP_Post|null" />
+        <typeAlias name="LaravelModel" type="Illuminate\Database\Eloquent\Model" />
+        <typeAlias name="LaravelCollection" type="Illuminate\Database\Eloquent\Collection" />
+    </typeAliases>
+
+    <!-- Mock classes for testing -->
+    <mockClasses>
+        <class name="Mockery\MockInterface" />
+        <class name="PHPUnit\Framework\MockObject\MockObject" />
+    </mockClasses>
+
+    <!-- Seal all properties by default (strict mode) -->
+    <sealAllMethods value="false" />
+    <sealAllProperties value="false" />
+
+    <!-- Universal object crates for dynamic frameworks -->
+    <universalObjectCrates>
+        <class name="stdClass" />
+    </universalObjectCrates>
+
+    <!-- Error baseline for legacy code -->
+    <errorBaseline>psalm-baseline.xml</errorBaseline>
+
+</psalm>

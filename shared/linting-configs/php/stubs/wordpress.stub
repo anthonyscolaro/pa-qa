@@ -1,0 +1,347 @@
+<?php
+
+// WordPress Core Stubs for PHPStan
+// These stubs help PHPStan understand WordPress-specific functions and classes
+
+// WordPress Database Class
+class wpdb {
+    public $prefix;
+    public $posts;
+    public $postmeta;
+    public $users;
+    public $usermeta;
+    public $options;
+    public $comments;
+    public $commentmeta;
+    public $terms;
+    public $termmeta;
+    public $term_taxonomy;
+    public $term_relationships;
+    
+    public function prepare(string $query, ...$args): string {}
+    public function get_results(string $query, string $output = OBJECT): array {}
+    public function get_row(string $query, string $output = OBJECT, int $y = 0): ?object {}
+    public function get_col(string $query, int $x = 0): array {}
+    public function get_var(string $query, int $x = 0, int $y = 0): ?string {}
+    public function query(string $query): int|false {}
+    public function insert(string $table, array $data, array $format = null): int|false {}
+    public function update(string $table, array $data, array $where, array $format = null, array $where_format = null): int|false {}
+    public function delete(string $table, array $where, array $where_format = null): int|false {}
+}
+
+// WordPress Query Class
+class WP_Query {
+    public $query;
+    public $query_vars;
+    public $posts;
+    public $post_count;
+    public $current_post;
+    public $post;
+    public $found_posts;
+    public $max_num_pages;
+    
+    public function __construct(array $query = []) {}
+    public function have_posts(): bool {}
+    public function the_post(): void {}
+    public function rewind_posts(): void {}
+    public function get_posts(): array {}
+    public function is_main_query(): bool {}
+}
+
+// WordPress Post Class
+class WP_Post {
+    public $ID;
+    public $post_author;
+    public $post_date;
+    public $post_date_gmt;
+    public $post_content;
+    public $post_title;
+    public $post_excerpt;
+    public $post_status;
+    public $comment_status;
+    public $ping_status;
+    public $post_password;
+    public $post_name;
+    public $to_ping;
+    public $pinged;
+    public $post_modified;
+    public $post_modified_gmt;
+    public $post_content_filtered;
+    public $post_parent;
+    public $guid;
+    public $menu_order;
+    public $post_type;
+    public $post_mime_type;
+    public $comment_count;
+    public $filter;
+}
+
+// WordPress User Class
+class WP_User {
+    public $ID;
+    public $caps;
+    public $cap_key;
+    public $roles;
+    public $allcaps;
+    public $filter;
+    
+    public function __construct(int $id = 0, string $name = '', string $site_id = '') {}
+    public function get(string $key): mixed {}
+    public function has_cap(string $cap): bool {}
+    public function add_cap(string $cap, bool $grant = true): void {}
+    public function remove_cap(string $cap): void {}
+    public function remove_all_caps(): void {}
+}
+
+// WordPress Error Class
+class WP_Error {
+    public $errors;
+    public $error_data;
+    
+    public function __construct(string $code = '', string $message = '', mixed $data = '') {}
+    public function get_error_codes(): array {}
+    public function get_error_code(): string {}
+    public function get_error_messages(string $code = ''): array {}
+    public function get_error_message(string $code = ''): string {}
+    public function get_error_data(string $code = ''): mixed {}
+    public function has_errors(): bool {}
+    public function add(string $code, string $message, mixed $data = ''): void {}
+    public function add_data(mixed $data, string $code = ''): void {}
+    public function remove(string $code): void {}
+}
+
+// WordPress Term Class
+class WP_Term {
+    public $term_id;
+    public $name;
+    public $slug;
+    public $term_group;
+    public $term_taxonomy_id;
+    public $taxonomy;
+    public $description;
+    public $parent;
+    public $count;
+    public $filter;
+}
+
+// WordPress Comment Class
+class WP_Comment {
+    public $comment_ID;
+    public $comment_post_ID;
+    public $comment_author;
+    public $comment_author_email;
+    public $comment_author_url;
+    public $comment_author_IP;
+    public $comment_date;
+    public $comment_date_gmt;
+    public $comment_content;
+    public $comment_karma;
+    public $comment_approved;
+    public $comment_agent;
+    public $comment_type;
+    public $comment_parent;
+    public $user_id;
+}
+
+// WordPress REST API Classes
+class WP_REST_Request {
+    public function get_params(): array {}
+    public function get_param(string $key): mixed {}
+    public function set_param(string $key, mixed $value): void {}
+    public function get_headers(): array {}
+    public function get_header(string $key): ?string {}
+    public function get_body(): string {}
+    public function get_json_params(): ?array {}
+    public function get_file_params(): array {}
+    public function get_url_params(): array {}
+    public function get_query_params(): array {}
+    public function get_body_params(): array {}
+}
+
+class WP_REST_Response {
+    public function __construct(mixed $data = null, int $status = 200, array $headers = []) {}
+    public function get_data(): mixed {}
+    public function set_data(mixed $data): void {}
+    public function get_status(): int {}
+    public function set_status(int $code): void {}
+    public function get_headers(): array {}
+    public function set_headers(array $headers): void {}
+    public function header(string $key, string $value, bool $replace = true): void {}
+}
+
+// WordPress Scripts and Styles
+class WP_Scripts {
+    public function add(string $handle, string $src, array $deps = [], string $ver = false, bool $in_footer = false): bool {}
+    public function enqueue(string $handle): void {}
+    public function dequeue(string $handle): void {}
+    public function remove(string $handle): void {}
+}
+
+class WP_Styles {
+    public function add(string $handle, string $src, array $deps = [], string $ver = false, string $media = 'all'): bool {}
+    public function enqueue(string $handle): void {}
+    public function dequeue(string $handle): void {}
+    public function remove(string $handle): void {}
+}
+
+// WordPress Rewrite
+class WP_Rewrite {
+    public function add_rule(string $regex, string $query, string $after = 'bottom'): void {}
+    public function add_rewrite_tag(string $tag, string $regex, string $query = ''): void {}
+    public function flush_rules(bool $hard = true): void {}
+}
+
+// Global functions stubs
+function wp_die(string $message = '', string $title = '', array $args = []): void {}
+function wp_redirect(string $location, int $status = 302, string $x_redirect_by = 'WordPress'): bool {}
+function wp_safe_redirect(string $location, int $status = 302, string $x_redirect_by = 'WordPress'): bool {}
+function wp_sanitize_redirect(string $location): string {}
+function wp_validate_redirect(string $location, string $default = ''): string {}
+
+function esc_html(string $text): string {}
+function esc_attr(string $text): string {}
+function esc_url(string $url, array $protocols = null, string $_context = 'display'): string {}
+function esc_js(string $text): string {}
+function esc_textarea(string $text): string {}
+function esc_sql(string $data): string {}
+
+function sanitize_text_field(string $str): string {}
+function sanitize_textarea_field(string $str): string {}
+function sanitize_email(string $email): string {}
+function sanitize_file_name(string $filename): string {}
+function sanitize_user(string $username, bool $strict = false): string {}
+function sanitize_key(string $key): string {}
+function sanitize_title(string $title, string $fallback_title = '', string $context = 'save'): string {}
+
+function get_option(string $option, mixed $default = false): mixed {}
+function update_option(string $option, mixed $value, string $autoload = null): bool {}
+function delete_option(string $option): bool {}
+function add_option(string $option, mixed $value = '', string $deprecated = '', string $autoload = 'yes'): bool {}
+
+function get_post_meta(int $post_id, string $key = '', bool $single = false): mixed {}
+function update_post_meta(int $post_id, string $meta_key, mixed $meta_value, mixed $prev_value = ''): int|bool {}
+function delete_post_meta(int $post_id, string $meta_key, mixed $meta_value = ''): bool {}
+function add_post_meta(int $post_id, string $meta_key, mixed $meta_value, bool $unique = false): int|false {}
+
+function get_user_meta(int $user_id, string $key = '', bool $single = false): mixed {}
+function update_user_meta(int $user_id, string $meta_key, mixed $meta_value, mixed $prev_value = ''): int|bool {}
+function delete_user_meta(int $user_id, string $meta_key, mixed $meta_value = ''): bool {}
+function add_user_meta(int $user_id, string $meta_key, mixed $meta_value, bool $unique = false): int|false {}
+
+function add_action(string $hook_name, callable $callback, int $priority = 10, int $accepted_args = 1): bool {}
+function remove_action(string $hook_name, callable $callback, int $priority = 10): bool {}
+function do_action(string $hook_name, ...$args): void {}
+function do_action_ref_array(string $hook_name, array $args): void {}
+function has_action(string $hook_name, callable $callback = false): bool|int {}
+
+function add_filter(string $hook_name, callable $callback, int $priority = 10, int $accepted_args = 1): bool {}
+function remove_filter(string $hook_name, callable $callback, int $priority = 10): bool {}
+function apply_filters(string $hook_name, mixed $value, ...$args): mixed {}
+function apply_filters_ref_array(string $hook_name, array $args): mixed {}
+function has_filter(string $hook_name, callable $callback = false): bool|int {}
+
+function wp_enqueue_script(string $handle, string $src = '', array $deps = [], string|bool $ver = false, bool $in_footer = false): void {}
+function wp_dequeue_script(string $handle): void {}
+function wp_register_script(string $handle, string $src, array $deps = [], string|bool $ver = false, bool $in_footer = false): bool {}
+function wp_deregister_script(string $handle): void {}
+
+function wp_enqueue_style(string $handle, string $src = '', array $deps = [], string|bool $ver = false, string $media = 'all'): void {}
+function wp_dequeue_style(string $handle): void {}
+function wp_register_style(string $handle, string $src = '', array $deps = [], string|bool $ver = false, string $media = 'all'): bool {}
+function wp_deregister_style(string $handle): void {}
+
+function wp_nonce_field(string $action = -1, string $name = "_wpnonce", bool $referer = true, bool $echo = true): string {}
+function wp_nonce_url(string $actionurl, string $action = -1, string $name = '_wpnonce'): string {}
+function wp_create_nonce(string $action = -1): string {}
+function wp_verify_nonce(string $nonce, string $action = -1): int|false {}
+function check_admin_referer(string $action = -1, string $query_arg = '_wpnonce'): int|false {}
+function check_ajax_referer(string $action = -1, string $query_arg = false, bool $die = true): int|false {}
+
+function current_user_can(string $capability, ...$args): bool {}
+function user_can(WP_User|int $user, string $capability, ...$args): bool {}
+function wp_get_current_user(): WP_User {}
+function is_user_logged_in(): bool {}
+function wp_logout(): void {}
+function wp_login(string $username, string $password, bool $remember = false): bool {}
+
+function get_posts(array $args = []): array {}
+function get_post(int|WP_Post|null $post = null, string $output = OBJECT, string $filter = 'raw'): WP_Post|array|null {}
+function wp_insert_post(array $postarr, bool $wp_error = false): int|WP_Error {}
+function wp_update_post(array $postarr, bool $wp_error = false): int|WP_Error {}
+function wp_delete_post(int $postid = 0, bool $force_delete = false): WP_Post|false|null {}
+function wp_publish_post(int|WP_Post $post): void {}
+
+function get_users(array $args = []): array {}
+function get_user_by(string $field, int|string $value): WP_User|false {}
+function wp_insert_user(array $userdata): int|WP_Error {}
+function wp_update_user(array $userdata): int|WP_Error {}
+function wp_delete_user(int $id, int $reassign = null): bool {}
+
+function get_terms(array $args = []): array|string|WP_Error {}
+function get_term(int|WP_Term|object $term, string $taxonomy = '', string $output = OBJECT, string $filter = 'raw'): WP_Term|array|WP_Error|null {}
+function wp_insert_term(string $term, string $taxonomy, array $args = []): array|WP_Error {}
+function wp_update_term(int $term_id, string $taxonomy, array $args = []): array|WP_Error {}
+function wp_delete_term(int $term, string $taxonomy, array $args = []): bool|int|WP_Error {}
+
+function is_admin(): bool {}
+function is_home(): bool {}
+function is_front_page(): bool {}
+function is_single(int|string|array $post = ''): bool {}
+function is_page(int|string|array $page = ''): bool {}
+function is_category(int|string|array $category = ''): bool {}
+function is_tag(int|string|array $tag = ''): bool {}
+function is_archive(): bool {}
+function is_search(): bool {}
+function is_404(): bool {}
+
+// Global variables
+/** @var wpdb $wpdb */
+$wpdb = new wpdb();
+
+/** @var WP_Query $wp_query */
+$wp_query = new WP_Query();
+
+/** @var WP_Query $wp_the_query */
+$wp_the_query = new WP_Query();
+
+/** @var WP_Rewrite $wp_rewrite */
+$wp_rewrite = new WP_Rewrite();
+
+/** @var WP_Scripts $wp_scripts */
+$wp_scripts = new WP_Scripts();
+
+/** @var WP_Styles $wp_styles */
+$wp_styles = new WP_Styles();
+
+/** @var WP_User $current_user */
+$current_user = new WP_User();
+
+/** @var WP_Post $post */
+$post = new WP_Post();
+
+/** @var array $wp */
+$wp = [];
+
+/** @var WP_User $authordata */
+$authordata = new WP_User();
+
+/** @var string $currentday */
+$currentday = '';
+
+/** @var string $currentmonth */
+$currentmonth = '';
+
+/** @var int $page */
+$page = 1;
+
+/** @var array $pages */
+$pages = [];
+
+/** @var bool $multipage */
+$multipage = false;
+
+/** @var bool $more */
+$more = true;
+
+/** @var int $numpages */
+$numpages = 1;

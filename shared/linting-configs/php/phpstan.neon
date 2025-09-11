@@ -1,0 +1,159 @@
+# PHPStan Configuration for PA-QA Framework
+# Level 8 - Maximum strictness for production code
+
+parameters:
+    level: 8
+    
+    paths:
+        - src
+        - app
+        - tests
+        - config
+        - database
+        - routes
+    
+    excludePaths:
+        - vendor
+        - node_modules
+        - storage
+        - bootstrap/cache
+        - public
+        - build
+        - dist
+        - '*.min.js'
+        - '*.min.css'
+        - 'database/migrations/*.php'
+    
+    # Ignore specific errors
+    ignoreErrors:
+        # Laravel specific ignores
+        - '#Call to an undefined method Illuminate\\Database\\Eloquent\\Builder::#'
+        - '#Call to an undefined method Illuminate\\Database\\Query\\Builder::#'
+        - '#Access to an undefined property Illuminate\\Database\\Eloquent\\Model::#'
+        - '#Call to an undefined method Illuminate\\Http\\Request::#'
+        - '#Property .+ \(Illuminate\\Database\\Eloquent\\Collection\) does not accept#'
+        
+        # WordPress specific ignores
+        - '#Function wp_.*\(\) not found#'
+        - '#Constant WP_.* not found#'
+        - '#Variable \$wp_.* might not be defined#'
+        - '#Function get_option\(\) not found#'
+        - '#Function add_action\(\) not found#'
+        - '#Function add_filter\(\) not found#'
+        
+        # Test specific ignores
+        - '#Call to an undefined method PHPUnit\\Framework\\TestCase::#'
+        - '#Access to an undefined property PHPUnit\\Framework\\MockObject\\MockObject::#'
+        
+        # Common framework patterns
+        - '#Offset .+ does not exist on array#'
+        - '#Cannot access offset .+ on mixed#'
+    
+    # Bootstrap files
+    bootstrapFiles:
+        - phpstan-bootstrap.php
+    
+    # Scan files
+    scanFiles:
+        - vendor/laravel/framework/src/Illuminate/Foundation/helpers.php
+        - vendor/laravel/framework/src/Illuminate/Support/helpers.php
+    
+    # Doctrine extensions
+    doctrine:
+        objectManagerLoader: doctrine-bootstrap.php
+    
+    # Rules
+    checkAlwaysTrueCheckTypeFunctionCall: true
+    checkAlwaysTrueInstanceof: true
+    checkAlwaysTrueStrictComparison: true
+    checkClassCaseSensitivity: true
+    checkExplicitMixed: true
+    checkFunctionArgumentTypes: true
+    checkFunctionNameCase: true
+    checkGenericClassInNonGenericObjectType: true
+    checkInternalClassCaseSensitivity: true
+    checkMissingIterableValueType: true
+    checkMissingVarTagTypehint: true
+    checkTooWideReturnTypesInProtectedAndPublicMethods: true
+    checkUninitializedProperties: true
+    checkDynamicProperties: true
+    
+    # Unused variables and parameters
+    checkMissingCallableSignature: true
+    checkMissingClosureNativeReturnTypehintRule: true
+    
+    # Type coverage
+    reportUnmatchedIgnoredErrors: true
+    treatPhpDocTypesAsCertain: false
+    
+    # Bleeding edge features
+    featureToggles:
+        bleedingEdge: true
+        disableRuntimeReflectionProvider: true
+    
+    # Error format
+    errorFormat: table
+    
+    # Memory limit
+    memoryLimitFile: .phpstan-memory-limit
+    
+    # Cache
+    tmpDir: build/phpstan
+    
+    # Custom rules
+    rules:
+        - PHPStan\Rules\DeadCode\UnusedPrivatePropertyRule
+        - PHPStan\Rules\DeadCode\UnusedPrivateMethodRule
+        - PHPStan\Rules\DeadCode\UnreachableStatementRule
+    
+    # Custom services
+    services:
+        # Laravel extensions
+        - phpstan.laravel.service_binding_finder
+        - phpstan.laravel.application_resolver
+        
+        # WordPress extensions  
+        - phpstan.wordpress.constants_provider
+        - phpstan.wordpress.functions_provider
+    
+    # Parallel processing
+    parallel:
+        jobSize: 20
+        maximumNumberOfProcesses: 32
+        minimumNumberOfJobsPerProcess: 2
+        processTimeout: 600.0
+    
+    # Conditional config based on environment
+    conditionalTags:
+        PHPStan\PhpDoc\TypeNodeResolverExtension:
+            phpstan.phpDoc.typeNodeResolverExtension: ~
+        
+        PHPStan\Type\DynamicMethodReturnTypeExtension:
+            phpstan.broker.dynamicMethodReturnTypeExtension: ~
+            
+        PHPStan\Type\DynamicFunctionReturnTypeExtension:
+            phpstan.broker.dynamicFunctionReturnTypeExtension: ~
+    
+    # Custom stubs for WordPress
+    stubFiles:
+        - stubs/wordpress.stub
+        - stubs/laravel.stub
+        - stubs/common.stub
+
+# Include additional configs based on framework
+includes:
+    # Base PHPStan configs
+    - phar://phpstan.phar/conf/bleedingEdge.neon
+    
+    # Extension configs (will be included if packages are installed)
+    # Laravel
+    - vendor/larastan/larastan/extension.neon
+    
+    # PHPUnit
+    - vendor/phpstan/phpstan-phpunit/extension.neon
+    
+    # Deprecation rules
+    - vendor/phpstan/phpstan-deprecation-rules/rules.neon
+    
+    # Strict rules
+    - vendor/phpstan/phpstan-strict-rules/rules.neon

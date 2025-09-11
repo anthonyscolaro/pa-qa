@@ -1,0 +1,528 @@
+name: FastAPI Testing Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+    paths:
+      - 'app/**'
+      - 'tests/**'
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - 'Dockerfile'
+      - '.github/workflows/fastapi-test.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'app/**'
+      - 'tests/**'
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - 'Dockerfile'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUNBUFFERED: 1
+  PYTHONDONTWRITEBYTECODE: 1
+  PIP_NO_CACHE_DIR: 1
+  PIP_DISABLE_PIP_VERSION_CHECK: 1
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.changes.outputs.tests }}
+      app: ${{ steps.changes.outputs.app }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            tests:
+              - 'app/**'
+              - 'tests/**'
+              - 'requirements*.txt'
+              - 'pyproject.toml'
+            app:
+              - 'app/**'
+
+  lint-and-security:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run Black formatting check
+        run: black --check --diff app tests
+
+      - name: Run isort import sorting check
+        run: isort --check-only --diff app tests
+
+      - name: Run flake8 linting
+        run: flake8 app tests --format=json --output-file=flake8-report.json
+        continue-on-error: true
+
+      - name: Run mypy type checking
+        run: mypy app --json-report mypy-report
+        continue-on-error: true
+
+      - name: Run bandit security scan
+        run: |
+          bandit -r app -f json -o bandit-report.json
+        continue-on-error: true
+
+      - name: Run safety dependency check
+        run: |
+          safety check --json --output safety-report.json
+        continue-on-error: true
+
+      - name: Upload linting results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-results-python-${{ matrix.python-version }}
+          path: |
+            flake8-report.json
+            mypy-report/
+            bandit-report.json
+            safety-report.json
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+        shard: [1, 2, 3, 4]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Run unit tests (shard ${{ matrix.shard }})
+        run: |
+          pytest tests/unit \
+            --dist=loadfile \
+            --tx=popen//execmodel=subprocess \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=lcov \
+            --cov-report=html \
+            --cov-report=term \
+            --junit-xml=test-results/junit-unit-${{ matrix.shard }}.xml \
+            --alluredir=allure-results \
+            --maxfail=5 \
+            --tb=short \
+            --durations=10 \
+            --splits=4 \
+            --group=${{ matrix.shard }}
+        env:
+          COVERAGE_FILE: .coverage-unit-${{ matrix.shard }}
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results-python-${{ matrix.python-version }}-shard-${{ matrix.shard }}
+          path: |
+            test-results/
+            allure-results/
+            htmlcov/
+            .coverage-unit-${{ matrix.shard }}
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.xml
+          flags: unit-tests,python-${{ matrix.python-version }}
+          name: unit-tests-python-${{ matrix.python-version }}-shard-${{ matrix.shard }}
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12']
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+      elasticsearch:
+        image: elasticsearch:8.8.0
+        env:
+          discovery.type: single-node
+          ES_JAVA_OPTS: '-Xms512m -Xmx512m'
+          xpack.security.enabled: false
+        options: >-
+          --health-cmd "curl -f http://localhost:9200/_cluster/health"
+          --health-interval 30s
+          --health-timeout 10s
+          --health-retries 5
+        ports:
+          - 9200:9200
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Wait for services
+        run: |
+          timeout 60 bash -c 'until nc -z localhost 5432; do sleep 1; done'
+          timeout 60 bash -c 'until nc -z localhost 6379; do sleep 1; done'
+          timeout 60 bash -c 'until nc -z localhost 9200; do sleep 1; done'
+
+      - name: Setup test database
+        run: |
+          python -m app.scripts.create_db
+          alembic upgrade head
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379
+          ELASTICSEARCH_URL: http://localhost:9200
+
+      - name: Run integration tests
+        run: |
+          pytest tests/integration \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=lcov \
+            --junit-xml=test-results/junit-integration.xml \
+            --alluredir=allure-results \
+            --maxfail=3 \
+            --tb=short \
+            --durations=10
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379
+          ELASTICSEARCH_URL: http://localhost:9200
+          COVERAGE_FILE: .coverage-integration
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results-python-${{ matrix.python-version }}
+          path: |
+            test-results/
+            allure-results/
+            .coverage-integration
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.xml
+          flags: integration-tests,python-${{ matrix.python-version }}
+          name: integration-tests-python-${{ matrix.python-version }}
+
+  api-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        python-version: ['3.11']
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: testdb
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-test.txt
+
+      - name: Setup test database
+        run: |
+          python -m app.scripts.create_db
+          alembic upgrade head
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+
+      - name: Start FastAPI application
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+
+      - name: Wait for API to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done'
+
+      - name: Run API tests
+        run: |
+          pytest tests/api \
+            --junit-xml=test-results/junit-api.xml \
+            --alluredir=allure-results \
+            --maxfail=3 \
+            --tb=short \
+            --durations=10
+        env:
+          API_BASE_URL: http://localhost:8000
+
+      - name: Upload API test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-test-results-python-${{ matrix.python-version }}
+          path: |
+            test-results/
+            allure-results/
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install locust
+
+      - name: Build Docker image
+        run: docker build -t fastapi-test .
+
+      - name: Start application in Docker
+        run: |
+          docker run -d --name fastapi-app -p 8000:8000 \
+            -e DATABASE_URL=sqlite:///./test.db \
+            fastapi-test
+          sleep 10
+
+      - name: Wait for API to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done'
+
+      - name: Run performance tests
+        run: |
+          locust --headless \
+            --users 100 \
+            --spawn-rate 10 \
+            --run-time 5m \
+            --host http://localhost:8000 \
+            --locustfile tests/performance/locustfile.py \
+            --html test-results/performance-report.html \
+            --csv test-results/performance
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-test-results
+          path: test-results/
+
+      - name: Stop Docker container
+        if: always()
+        run: docker stop fastapi-app && docker rm fastapi-app
+
+  docker-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build test image
+        run: |
+          docker build --target test -t fastapi-test:latest .
+
+      - name: Run tests in Docker
+        run: |
+          docker run --rm \
+            -v ${{ github.workspace }}/test-results:/app/test-results \
+            -e DATABASE_URL=sqlite:///./test.db \
+            fastapi-test:latest \
+            pytest tests/unit tests/integration \
+              --junit-xml=test-results/junit-docker.xml \
+              --cov=app \
+              --cov-report=xml \
+              --alluredir=allure-results
+
+      - name: Upload Docker test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: docker-test-results
+          path: test-results/
+
+  collect-results:
+    runs-on: ubuntu-latest
+    needs: [lint-and-security, unit-tests, integration-tests, api-tests, performance-tests, docker-tests]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Combine coverage reports
+        run: |
+          pip install coverage
+          mkdir -p merged-results
+          find artifacts -name ".coverage-*" -exec cp {} merged-results/ \;
+          cd merged-results
+          coverage combine .coverage-*
+          coverage xml -o coverage.xml
+          coverage html -d htmlcov
+          coverage report
+
+      - name: Merge test results
+        run: |
+          mkdir -p merged-results/allure-results
+          find artifacts -name "junit-*.xml" -exec cp {} merged-results/ \;
+          find artifacts -name "allure-results" -type d -exec cp -r {}/* merged-results/allure-results/ \;
+
+      - name: Generate Allure Report
+        uses: simple-elf/allure-report-action@master
+        if: always()
+        with:
+          allure_results: merged-results/allure-results
+          allure_report: allure-report
+          gh_pages: allure-results
+
+      - name: Upload merged results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pa-qa-fastapi-test-results
+          path: |
+            merged-results/
+            allure-report/
+          retention-days: 30
+
+      - name: Upload final coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./merged-results/coverage.xml
+          flags: combined-coverage
+          name: fastapi-combined-coverage
+
+      - name: Test Summary
+        uses: test-summary/action@v2
+        if: always()
+        with:
+          paths: "merged-results/junit-*.xml"
+
+  notify-status:
+    runs-on: ubuntu-latest
+    needs: [collect-results]
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Notify Slack on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#qa-alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          
+      - name: Notify Slack on success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#qa-alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

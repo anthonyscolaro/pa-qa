@@ -1,0 +1,307 @@
+<?xml version="1.0"?>
+<ruleset xmlns="http://pmd.sf.net/ruleset/1.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         name="PA-QA PHP Mess Detector Rules"
+         xsi:schemaLocation="http://pmd.sf.net/ruleset/1.0.0 http://pmd.sf.net/ruleset_xml_schema.xsd"
+         xsi:noNamespaceSchemaLocation="http://pmd.sf.net/ruleset_xml_schema.xsd">
+
+    <description>PHP Mess Detector rules for PA-QA framework</description>
+
+    <!-- Clean Code Rules -->
+    <rule ref="rulesets/cleancode.xml">
+        <!-- Exclude rules that conflict with framework patterns -->
+        <exclude name="StaticAccess"/>
+        <exclude name="ElseExpression"/>
+        <exclude name="BooleanArgumentFlag"/>
+    </rule>
+
+    <!-- Code Size Rules -->
+    <rule ref="rulesets/codesize.xml">
+        <!-- Customize thresholds for modern applications -->
+        <exclude name="CyclomaticComplexity"/>
+        <exclude name="NPathComplexity"/>
+        <exclude name="ExcessiveMethodLength"/>
+        <exclude name="ExcessiveClassLength"/>
+        <exclude name="ExcessiveParameterList"/>
+        <exclude name="ExcessiveClassComplexity"/>
+        <exclude name="TooManyFields"/>
+        <exclude name="TooManyMethods"/>
+        <exclude name="TooManyPublicMethods"/>
+    </rule>
+
+    <!-- Custom Code Size Rules with appropriate thresholds -->
+    <rule ref="rulesets/codesize.xml/CyclomaticComplexity">
+        <properties>
+            <property name="reportLevel" value="10"/>
+            <property name="showClassesComplexity" value="true"/>
+            <property name="showMethodsComplexity" value="true"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/NPathComplexity">
+        <properties>
+            <property name="minimum" value="200"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/ExcessiveMethodLength">
+        <properties>
+            <property name="minimum" value="50"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/ExcessiveClassLength">
+        <properties>
+            <property name="minimum" value="500"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/ExcessiveParameterList">
+        <properties>
+            <property name="minimum" value="6"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/ExcessiveClassComplexity">
+        <properties>
+            <property name="maximum" value="50"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/TooManyFields">
+        <properties>
+            <property name="maxfields" value="15"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/TooManyMethods">
+        <properties>
+            <property name="maxmethods" value="25"/>
+        </properties>
+        <!-- Exclude from test classes and factories -->
+        <exclude-pattern>*/tests/*</exclude-pattern>
+        <exclude-pattern>*/factories/*</exclude-pattern>
+        <exclude-pattern>*/seeders/*</exclude-pattern>
+    </rule>
+
+    <rule ref="rulesets/codesize.xml/TooManyPublicMethods">
+        <properties>
+            <property name="maxmethods" value="15"/>
+        </properties>
+        <!-- Exclude from controllers and API resources -->
+        <exclude-pattern>*/Controllers/*</exclude-pattern>
+        <exclude-pattern>*/Resources/*</exclude-pattern>
+        <exclude-pattern>*/tests/*</exclude-pattern>
+    </rule>
+
+    <!-- Controversial Rules -->
+    <rule ref="rulesets/controversial.xml">
+        <!-- Keep camelCase for consistency -->
+        <exclude name="CamelCaseClassName"/>
+        <exclude name="CamelCasePropertyName"/>
+        <exclude name="CamelCaseMethodName"/>
+        <exclude name="CamelCaseParameterName"/>
+        <exclude name="CamelCaseVariableName"/>
+        <!-- Allow superglobals in WordPress -->
+        <exclude name="Superglobals"/>
+    </rule>
+
+    <!-- Design Rules -->
+    <rule ref="rulesets/design.xml">
+        <!-- Exclude rules that don't apply to modern frameworks -->
+        <exclude name="CouplingBetweenObjects"/>
+        <exclude name="NumberOfChildren"/>
+        <exclude name="DepthOfInheritance"/>
+    </rule>
+
+    <!-- Custom Design Rules -->
+    <rule ref="rulesets/design.xml/CouplingBetweenObjects">
+        <properties>
+            <property name="maximum" value="15"/>
+        </properties>
+        <!-- Exclude from service providers and complex controllers -->
+        <exclude-pattern>*/Providers/*</exclude-pattern>
+        <exclude-pattern>*/Controllers/*</exclude-pattern>
+    </rule>
+
+    <rule ref="rulesets/design.xml/NumberOfChildren">
+        <properties>
+            <property name="minimum" value="20"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/design.xml/DepthOfInheritance">
+        <properties>
+            <property name="minimum" value="8"/>
+        </properties>
+    </rule>
+
+    <!-- Naming Rules -->
+    <rule ref="rulesets/naming.xml">
+        <!-- Exclude overly restrictive naming rules -->
+        <exclude name="ShortVariable"/>
+        <exclude name="LongVariable"/>
+        <exclude name="ShortMethodName"/>
+        <exclude name="ConstructorWithNameAsEnclosingClass"/>
+        <exclude name="ConstantNamingConventions"/>
+        <exclude name="BooleanGetMethodName"/>
+    </rule>
+
+    <!-- Custom Naming Rules -->
+    <rule ref="rulesets/naming.xml/ShortVariable">
+        <properties>
+            <property name="minimum" value="2"/>
+        </properties>
+        <!-- Allow common short variables -->
+        <exclude-pattern>*/(.*)(i|j|k|x|y|z|id|db|wp)(.*)*/</exclude-pattern>
+    </rule>
+
+    <rule ref="rulesets/naming.xml/LongVariable">
+        <properties>
+            <property name="maximum" value="25"/>
+        </properties>
+    </rule>
+
+    <rule ref="rulesets/naming.xml/ShortMethodName">
+        <properties>
+            <property name="minimum" value="3"/>
+        </properties>
+        <!-- Allow common short method names -->
+        <exclude-pattern>*/(get|set|is|has|can|add|run|up|do)(.*)*/</exclude-pattern>
+    </rule>
+
+    <!-- Unused Code Rules -->
+    <rule ref="rulesets/unusedcode.xml">
+        <!-- Allow unused parameters in interface implementations -->
+        <exclude name="UnusedFormalParameter"/>
+        <exclude name="UnusedLocalVariable"/>
+    </rule>
+
+    <!-- Custom Unused Code Rules -->
+    <rule ref="rulesets/unusedcode.xml/UnusedFormalParameter">
+        <!-- Exclude from interface implementations and abstract methods -->
+        <exclude-pattern>*/Contracts/*</exclude-pattern>
+        <exclude-pattern>*/Interfaces/*</exclude-pattern>
+        <exclude-pattern>*/Abstract*</exclude-pattern>
+        <exclude-pattern>*/tests/*</exclude-pattern>
+    </rule>
+
+    <rule ref="rulesets/unusedcode.xml/UnusedLocalVariable">
+        <!-- Allow in complex methods and tests -->
+        <exclude-pattern>*/tests/*</exclude-pattern>
+        <exclude-pattern>*/migrations/*</exclude-pattern>
+    </rule>
+
+    <!-- Framework-specific exclusions -->
+    
+    <!-- Laravel exclusions -->
+    <exclude-pattern>*/bootstrap/*</exclude-pattern>
+    <exclude-pattern>*/config/*</exclude-pattern>
+    <exclude-pattern>*/database/migrations/*</exclude-pattern>
+    <exclude-pattern>*/database/seeders/*</exclude-pattern>
+    <exclude-pattern>*/lang/*</exclude-pattern>
+    <exclude-pattern>*/public/*</exclude-pattern>
+    <exclude-pattern>*/resources/*</exclude-pattern>
+    <exclude-pattern>*/routes/*</exclude-pattern>
+    <exclude-pattern>*/storage/*</exclude-pattern>
+    <exclude-pattern>*/vendor/*</exclude-pattern>
+
+    <!-- WordPress exclusions -->
+    <exclude-pattern>*/wp-admin/*</exclude-pattern>
+    <exclude-pattern>*/wp-includes/*</exclude-pattern>
+    <exclude-pattern>*/wp-content/uploads/*</exclude-pattern>
+    <exclude-pattern>*/wp-content/cache/*</exclude-pattern>
+    <exclude-pattern>*/wp-content/mu-plugins/*</exclude-pattern>
+
+    <!-- Generic exclusions -->
+    <exclude-pattern>*/node_modules/*</exclude-pattern>
+    <exclude-pattern>*/build/*</exclude-pattern>
+    <exclude-pattern>*/dist/*</exclude-pattern>
+    <exclude-pattern>*/.git/*</exclude-pattern>
+    <exclude-pattern>*.min.js</exclude-pattern>
+    <exclude-pattern>*.min.css</exclude-pattern>
+
+    <!-- Custom Rules for WordPress -->
+    <rule name="WordPressNamingConventions"
+          message="WordPress function names should use snake_case"
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+          language="php">
+        <description>WordPress function names should follow snake_case convention</description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//FunctionDeclaration[@Name[not(matches(@Image, '^[a-z][a-z0-9_]*$'))]]
+[ancestor::*[contains(@Image, 'wp-content') or contains(@Image, 'wordpress') or contains(@Image, 'plugins') or contains(@Image, 'themes')]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- Custom Rules for Laravel -->
+    <rule name="LaravelControllerNaming"
+          message="Laravel controllers should end with 'Controller'"
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+          language="php">
+        <description>Laravel controllers should follow naming convention</description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ClassDeclaration[@Name[not(ends-with(@Image, 'Controller'))]]
+[ancestor::*[contains(@Image, 'Controllers')]]
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- Security-focused rules -->
+    <rule name="AvoidEval"
+          message="Use of eval() is discouraged for security reasons"
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+          language="php">
+        <description>The eval() function should be avoided for security reasons</description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//FunctionCall[@Image='eval']
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <rule name="AvoidExec"
+          message="Use of exec() functions should be carefully reviewed"
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+          language="php">
+        <description>Execution functions should be used with caution</description>
+        <priority>2</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//FunctionCall[@Image='exec' or @Image='shell_exec' or @Image='system' or @Image='passthru']
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+    <!-- Performance-focused rules -->
+    <rule name="AvoidCountInLoops"
+          message="Avoid calling count() in loops, store the result in a variable"
+          class="net.sourceforge.pmd.lang.rule.XPathRule"
+          language="php">
+        <description>Calling count() in loops is inefficient</description>
+        <priority>3</priority>
+        <properties>
+            <property name="xpath">
+                <value><![CDATA[
+//ForLoop//FunctionCall[@Image='count']
+| //WhileLoop//FunctionCall[@Image='count']
+| //ForeachLoop//FunctionCall[@Image='count']
+                ]]></value>
+            </property>
+        </properties>
+    </rule>
+
+</ruleset>

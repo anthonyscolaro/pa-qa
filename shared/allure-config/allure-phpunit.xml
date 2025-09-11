@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+PHPUnit Allure Adapter Configuration
+
+Comprehensive Allure integration for PHPUnit test framework
+Supports screenshots, attachments, parallel execution, and detailed reporting
+-->
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/10.0/phpunit.xsd"
+    bootstrap="tests/bootstrap.php"
+    cacheDirectory=".phpunit.cache"
+    executionOrder="depends,defects"
+    requireCoverageMetadata="true"
+    beStrictAboutCoverageMetadata="true"
+    beStrictAboutOutputDuringTests="true"
+    failOnRisky="true"
+    failOnWarning="true">
+
+    <!-- Test suites configuration -->
+    <testsuites>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+        <testsuite name="Integration">
+            <directory>tests/Integration</directory>
+        </testsuite>
+        <testsuite name="E2E">
+            <directory>tests/E2E</directory>
+        </testsuite>
+    </testsuites>
+
+    <!-- Source code for coverage -->
+    <source>
+        <include>
+            <directory suffix=".php">src</directory>
+            <directory suffix=".php">app</directory>
+        </include>
+        <exclude>
+            <directory>src/migrations</directory>
+            <directory>src/config</directory>
+            <file>src/bootstrap.php</file>
+        </exclude>
+    </source>
+
+    <!-- Coverage configuration -->
+    <coverage
+        includeUncoveredFiles="true"
+        processUncoveredFiles="true"
+        pathCoverage="false"
+        ignoreDeprecatedCodeUnits="true"
+        disableCodeCoverageIgnore="true">
+        
+        <report>
+            <clover outputFile="coverage/clover.xml"/>
+            <cobertura outputFile="coverage/cobertura.xml"/>
+            <crap4j outputFile="coverage/crap4j.xml" threshold="50"/>
+            <html outputDirectory="coverage/html" lowUpperBound="50" highLowerBound="90"/>
+            <php outputFile="coverage/coverage.php"/>
+            <text outputFile="coverage/coverage.txt" showUncoveredFiles="false" showOnlySummary="true"/>
+            <xml outputDirectory="coverage/xml"/>
+        </report>
+    </coverage>
+
+    <!-- Logging configuration for Allure -->
+    <logging>
+        <!-- JUnit XML for Allure compatibility -->
+        <junit outputFile="allure-results/junit.xml"/>
+        
+        <!-- TeamCity for CI integration -->
+        <teamcity outputFile="allure-results/teamcity.txt"/>
+        
+        <!-- Test results -->
+        <testdoxHtml outputFile="allure-results/testdox.html"/>
+        <testdoxText outputFile="allure-results/testdox.txt"/>
+    </logging>
+
+    <!-- Environment variables -->
+    <php>
+        <!-- Allure configuration -->
+        <env name="ALLURE_PROJECT_NAME" value="unknown-project" force="false"/>
+        <env name="ALLURE_RESULTS_DIR" value="allure-results" force="false"/>
+        <env name="ALLURE_LINK_PATTERN_ISSUE" value="https://github.com/your-org/your-repo/issues/{}" force="false"/>
+        <env name="ALLURE_LINK_PATTERN_TMS" value="https://your-tms.com/testcase/{}" force="false"/>
+        
+        <!-- Database configuration for testing -->
+        <env name="DB_CONNECTION" value="sqlite"/>
+        <env name="DB_DATABASE" value=":memory:"/>
+        
+        <!-- Cache configuration -->
+        <env name="CACHE_DRIVER" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        
+        <!-- Mail configuration -->
+        <env name="MAIL_MAILER" value="array"/>
+        
+        <!-- Application environment -->
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_DEBUG" value="true"/>
+        
+        <!-- CI/CD information -->
+        <env name="CI_BUILD_URL" value="" force="false"/>
+        <env name="CI_BUILD_NUMBER" value="" force="false"/>
+        <env name="CI_COMMIT_SHA" value="" force="false"/>
+        <env name="CI_BRANCH" value="" force="false"/>
+    </php>
+
+    <!-- Extensions for Allure integration -->
+    <extensions>
+        <!-- Allure PHPUnit Adapter -->
+        <bootstrap class="Qameta\Allure\PHPUnit\AllureExtension">
+            <parameter name="resultsDirectory">allure-results</parameter>
+            <parameter name="setupHook">AllureSetupHook::class</parameter>
+            <parameter name="teardownHook">AllureTeardownHook::class</parameter>
+        </bootstrap>
+        
+        <!-- Database transactions -->
+        <bootstrap class="Tests\DatabaseTransactionExtension"/>
+        
+        <!-- Screenshot capture on failure -->
+        <bootstrap class="Tests\ScreenshotExtension"/>
+    </extensions>
+
+    <!-- Test execution configuration -->
+    <groups>
+        <include>
+            <group>unit</group>
+            <group>integration</group>
+            <group>feature</group>
+        </include>
+        <exclude>
+            <group>slow</group>
+            <group>external</group>
+        </exclude>
+    </groups>
+
+    <!-- Test listeners for Allure integration -->
+    <listeners>
+        <listener class="Tests\Listeners\AllureTestListener"/>
+        <listener class="Tests\Listeners\DatabaseTestListener"/>
+        <listener class="Tests\Listeners\PerformanceTestListener"/>
+    </listeners>
+</phpunit>
+
+<!--
+Additional configuration files to create alongside this phpunit.xml:
+
+1. tests/bootstrap.php - Test bootstrap file
+2. tests/Listeners/AllureTestListener.php - Allure test listener
+3. tests/Listeners/DatabaseTestListener.php - Database test listener
+4. tests/Listeners/PerformanceTestListener.php - Performance test listener
+5. tests/DatabaseTransactionExtension.php - Database transaction extension
+6. tests/ScreenshotExtension.php - Screenshot extension
+7. allure.config.php - Allure PHP configuration
+
+Example bootstrap.php content:
+<?php
+require_once __DIR__ . '/../vendor/autoload.php';
+
+// Allure configuration
+use Qameta\Allure\Allure;
+use Qameta\Allure\Model\Status;
+
+// Set up Allure
+Allure::setDefaultLifecycle();
+
+// Environment information
+$projectName = $_ENV['ALLURE_PROJECT_NAME'] ?? 'unknown-project';
+$resultsDir = $_ENV['ALLURE_RESULTS_DIR'] ?? 'allure-results';
+
+// Ensure results directory exists
+if (!is_dir($resultsDir)) {
+    mkdir($resultsDir, 0755, true);
+}
+
+// Create environment.properties
+$envProperties = [
+    "Project={$projectName}",
+    "Framework=PHPUnit",
+    "PHP.Version=" . PHP_VERSION,
+    "Platform=" . PHP_OS,
+    "Test.Run.Date=" . date('c'),
+];
+
+if (getenv('CI')) {
+    $envProperties[] = 'CI=true';
+    $envProperties[] = 'Build.Number=' . (getenv('CI_BUILD_NUMBER') ?: 'unknown');
+    $envProperties[] = 'Commit.SHA=' . (getenv('CI_COMMIT_SHA') ?: 'unknown');
+    $envProperties[] = 'Branch=' . (getenv('CI_BRANCH') ?: 'unknown');
+}
+
+file_put_contents(
+    $resultsDir . '/environment.properties',
+    implode(PHP_EOL, $envProperties)
+);
+
+// Create executor.json
+$executorInfo = [
+    'name' => 'PHPUnit',
+    'type' => 'phpunit',
+    'url' => getenv('CI_BUILD_URL') ?: '',
+    'buildOrder' => (int)(getenv('CI_BUILD_NUMBER') ?: 0),
+    'buildName' => $projectName . '-' . (getenv('CI_BUILD_NUMBER') ?: 'local'),
+    'buildUrl' => getenv('CI_BUILD_URL') ?: '',
+    'reportUrl' => "https://allure.projectassistant.ai/{$projectName}",
+    'reportName' => "{$projectName} Test Report",
+];
+
+file_put_contents(
+    $resultsDir . '/executor.json',
+    json_encode($executorInfo, JSON_PRETTY_PRINT)
+);
+
+Example AllureTestListener.php content:
+<?php
+namespace Tests\Listeners;
+
+use PHPUnit\Framework\TestListener;
+use PHPUnit\Framework\TestListenerDefaultImplementation;
+use PHPUnit\Framework\Test;
+use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\TestSuite;
+use Qameta\Allure\Allure;
+use Qameta\Allure\Model\Status;
+use Throwable;
+
+class AllureTestListener implements TestListener
+{
+    use TestListenerDefaultImplementation;
+
+    public function startTestSuite(TestSuite $suite): void
+    {
+        // Set up test suite information
+        $projectName = $_ENV['ALLURE_PROJECT_NAME'] ?? 'unknown-project';
+        Allure::feature($projectName);
+    }
+
+    public function startTest(Test $test): void
+    {
+        if ($test instanceof TestCase) {
+            // Add test metadata
+            $className = get_class($test);
+            $methodName = $test->getName();
+            
+            Allure::story($className);
+            Allure::label('testClass', $className);
+            Allure::label('testMethod', $methodName);
+            Allure::label('framework', 'phpunit');
+            Allure::label('language', 'php');
+            
+            // Add severity based on test groups
+            $groups = $test->getGroups();
+            if (in_array('critical', $groups)) {
+                Allure::severity('critical');
+            } elseif (in_array('major', $groups)) {
+                Allure::severity('major');
+            } elseif (in_array('minor', $groups)) {
+                Allure::severity('minor');
+            } else {
+                Allure::severity('normal');
+            }
+        }
+    }
+
+    public function addError(Test $test, Throwable $e, float $time): void
+    {
+        // Attach error information
+        Allure::attachment(
+            'Error Details',
+            json_encode([
+                'message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+                'trace' => $e->getTraceAsString(),
+            ], JSON_PRETTY_PRINT),
+            'application/json'
+        );
+    }
+
+    public function addFailure(Test $test, AssertionFailedError $e, float $time): void
+    {
+        // Attach failure information
+        Allure::attachment(
+            'Failure Details',
+            json_encode([
+                'message' => $e->getMessage(),
+                'actual' => $e->getActual(),
+                'expected' => $e->getExpected(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
+            ], JSON_PRETTY_PRINT),
+            'application/json'
+        );
+    }
+}
+-->

@@ -1,0 +1,144 @@
+{
+  "compilerOptions": {
+    // Language and module options
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+
+    // Bundler mode options
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": false,
+
+    // Type checking options
+    "strict": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": false,
+
+    // Advanced options
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "removeComments": false,
+    "importHelpers": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+
+    // JSX options (React)
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+
+    // Path mapping (common patterns)
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@/components/*": ["src/components/*"],
+      "@/pages/*": ["src/pages/*"],
+      "@/hooks/*": ["src/hooks/*"],
+      "@/utils/*": ["src/utils/*"],
+      "@/types/*": ["src/types/*"],
+      "@/styles/*": ["src/styles/*"],
+      "@/assets/*": ["src/assets/*"],
+      "@/config/*": ["src/config/*"],
+      "@/constants/*": ["src/constants/*"],
+      "@/contexts/*": ["src/contexts/*"],
+      "@/services/*": ["src/services/*"],
+      "@/store/*": ["src/store/*"],
+      "@/api/*": ["src/api/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/test/*": ["test/*"],
+      "@/tests/*": ["tests/*"],
+      "~/*": ["./src/*"]
+    },
+
+    // Output options
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "declarationDir": "./dist/types",
+
+    // Incremental compilation
+    "incremental": true,
+    "tsBuildInfoFile": "./node_modules/.cache/typescript/tsbuildinfo.json"
+  },
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "test/**/*",
+    "__tests__/**/*",
+    "*.config.ts",
+    "*.config.js",
+    "vitest.config.ts",
+    "vite.config.ts",
+    "jest.config.ts",
+    "playwright.config.ts",
+    "cypress.config.ts",
+    "tailwind.config.ts",
+    "next.config.ts",
+    "nuxt.config.ts",
+    "eslint.config.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    ".next",
+    ".nuxt",
+    "coverage",
+    ".nyc_output",
+    "public",
+    "static",
+    "*.min.js",
+    "*.bundle.js",
+    ".cache",
+    ".temp",
+    ".tmp",
+    "generated",
+    ".storybook/public",
+    "storybook-static",
+    ".docusaurus",
+    "docs/.vitepress/dist"
+  ],
+  "compileOnSave": false,
+  "ts-node": {
+    "esm": true,
+    "compilerOptions": {
+      "module": "ESNext",
+      "moduleResolution": "node",
+      "allowSyntheticDefaultImports": true,
+      "esModuleInterop": true
+    }
+  },
+  "typedocOptions": {
+    "entryPoints": ["src/index.ts"],
+    "out": "docs",
+    "theme": "default",
+    "excludePrivate": true,
+    "excludeProtected": true,
+    "excludeExternals": true,
+    "readme": "README.md",
+    "name": "PA-QA Project Documentation",
+    "includeVersion": true
+  }
+}

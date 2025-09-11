@@ -1,0 +1,517 @@
+name: Security Scanning Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+  pull_request:
+    branches: [main, develop]
+  schedule:
+    # Run security scans daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      scan_type:
+        description: 'Type of security scan to run'
+        required: false
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - sast
+          - dependencies
+          - secrets
+          - container
+          - infrastructure
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: true
+
+jobs:
+  detect-technologies:
+    runs-on: ubuntu-latest
+    outputs:
+      has-node: ${{ steps.detect.outputs.has-node }}
+      has-python: ${{ steps.detect.outputs.has-python }}
+      has-php: ${{ steps.detect.outputs.has-php }}
+      has-docker: ${{ steps.detect.outputs.has-docker }}
+      has-terraform: ${{ steps.detect.outputs.has-terraform }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect project technologies
+        id: detect
+        run: |
+          echo "has-node=$([ -f package.json ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-python=$([ -f requirements.txt ] || [ -f pyproject.toml ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-php=$([ -f composer.json ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-docker=$([ -f Dockerfile ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-terraform=$([ -f "*.tf" ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
+  secret-scanning:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.scan_type == 'all' || github.event.inputs.scan_type == 'secrets' || github.event.inputs.scan_type == ''
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run TruffleHog secret scan
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified --json --output-file=trufflehog-results.json
+
+      - name: Run GitLeaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+
+      - name: Upload secret scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: secret-scan-results
+          path: |
+            trufflehog-results.json
+            results.sarif
+
+  sast-scanning:
+    runs-on: ubuntu-latest
+    needs: detect-technologies
+    if: github.event.inputs.scan_type == 'all' || github.event.inputs.scan_type == 'sast' || github.event.inputs.scan_type == ''
+    strategy:
+      matrix:
+        include:
+          - tool: 'semgrep'
+            name: 'Semgrep SAST'
+          - tool: 'codeql'
+            name: 'CodeQL Analysis'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        if: matrix.tool == 'codeql'
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript, python, java, csharp, cpp, go, ruby
+          queries: security-and-quality
+
+      - name: Run Semgrep
+        if: matrix.tool == 'semgrep'
+        uses: semgrep/semgrep-action@v1
+        with:
+          config: >-
+            p/security-audit
+            p/secrets
+            p/owasp-top-ten
+            p/javascript
+            p/python
+            p/php
+            p/typescript
+            p/react
+          generateSarif: "1"
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Perform CodeQL Analysis
+        if: matrix.tool == 'codeql'
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:multi"
+
+      - name: Upload SAST results
+        if: matrix.tool == 'semgrep'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sast-${{ matrix.tool }}-results
+          path: |
+            semgrep.sarif
+            semgrep.json
+
+  dependency-scanning:
+    runs-on: ubuntu-latest
+    needs: detect-technologies
+    if: github.event.inputs.scan_type == 'all' || github.event.inputs.scan_type == 'dependencies' || github.event.inputs.scan_type == ''
+    strategy:
+      matrix:
+        include:
+          - condition: ${{ needs.detect-technologies.outputs.has-node == 'true' }}
+            name: 'Node.js Dependencies'
+            setup: 'node'
+          - condition: ${{ needs.detect-technologies.outputs.has-python == 'true' }}
+            name: 'Python Dependencies'
+            setup: 'python'
+          - condition: ${{ needs.detect-technologies.outputs.has-php == 'true' }}
+            name: 'PHP Dependencies'
+            setup: 'php'
+        exclude:
+          - condition: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: matrix.setup == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Setup Python
+        if: matrix.setup == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Setup PHP
+        if: matrix.setup == 'php'
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Install dependencies
+        run: |
+          if [ "${{ matrix.setup }}" == "node" ]; then
+            npm ci --audit
+          elif [ "${{ matrix.setup }}" == "python" ]; then
+            pip install safety pip-audit
+            if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          elif [ "${{ matrix.setup }}" == "php" ]; then
+            composer install --no-dev
+          fi
+
+      - name: Run Snyk security scan
+        uses: snyk/actions/node@master
+        if: matrix.setup == 'node'
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium --json-file-output=snyk-node-results.json
+
+      - name: Run Snyk Python scan
+        uses: snyk/actions/python@master
+        if: matrix.setup == 'python'
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium --json-file-output=snyk-python-results.json
+
+      - name: Run Snyk PHP scan
+        uses: snyk/actions/php@master
+        if: matrix.setup == 'php'
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --severity-threshold=medium --json-file-output=snyk-php-results.json
+
+      - name: Run npm audit (Node.js)
+        if: matrix.setup == 'node'
+        run: |
+          npm audit --audit-level=moderate --json > npm-audit-results.json || true
+        continue-on-error: true
+
+      - name: Run Safety scan (Python)
+        if: matrix.setup == 'python'
+        run: |
+          safety check --json --output safety-results.json || true
+          pip-audit --format=json --output=pip-audit-results.json || true
+        continue-on-error: true
+
+      - name: Run Composer audit (PHP)
+        if: matrix.setup == 'php'
+        run: |
+          composer audit --format=json > composer-audit-results.json || true
+        continue-on-error: true
+
+      - name: Upload dependency scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-scan-${{ matrix.setup }}-results
+          path: |
+            *-results.json
+            snyk-*-results.json
+
+  container-scanning:
+    runs-on: ubuntu-latest
+    needs: detect-technologies
+    if: (github.event.inputs.scan_type == 'all' || github.event.inputs.scan_type == 'container' || github.event.inputs.scan_type == '') && needs.detect-technologies.outputs.has-docker == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t security-scan-image:latest .
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'security-scan-image:latest'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+
+      - name: Run Trivy filesystem scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'json'
+          output: 'trivy-fs-results.json'
+
+      - name: Run Snyk container scan
+        uses: snyk/actions/docker@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          image: security-scan-image:latest
+          args: --severity-threshold=medium --json-file-output=snyk-container-results.json
+
+      - name: Run Hadolint Dockerfile scan
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          format: json
+          output-file: hadolint-results.json
+
+      - name: Upload container scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: container-scan-results
+          path: |
+            trivy-results.sarif
+            trivy-fs-results.json
+            snyk-container-results.json
+            hadolint-results.json
+
+  infrastructure-scanning:
+    runs-on: ubuntu-latest
+    needs: detect-technologies
+    if: (github.event.inputs.scan_type == 'all' || github.event.inputs.scan_type == 'infrastructure' || github.event.inputs.scan_type == '') && needs.detect-technologies.outputs.has-terraform == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Run TFSec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          format: json
+          soft_fail: true
+
+      - name: Run Checkov
+        id: checkov
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: .
+          framework: terraform
+          output_format: json
+          output_file_path: checkov-results.json
+          soft_fail: true
+
+      - name: Run Trivy IaC scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: '.'
+          format: 'json'
+          output: 'trivy-iac-results.json'
+
+      - name: Upload infrastructure scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: infrastructure-scan-results
+          path: |
+            results.json
+            checkov-results.json
+            trivy-iac-results.json
+
+  license-scanning:
+    runs-on: ubuntu-latest
+    needs: detect-technologies
+    if: github.event.inputs.scan_type == 'all' || github.event.inputs.scan_type == '' || github.event.inputs.scan_type == 'dependencies'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: needs.detect-technologies.outputs.has-node == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install license-checker
+        if: needs.detect-technologies.outputs.has-node == 'true'
+        run: npm install -g license-checker
+
+      - name: Install dependencies
+        if: needs.detect-technologies.outputs.has-node == 'true'
+        run: npm ci
+
+      - name: Run license scan
+        if: needs.detect-technologies.outputs.has-node == 'true'
+        run: |
+          license-checker --json --out license-results.json
+          license-checker --summary > license-summary.txt
+        continue-on-error: true
+
+      - name: Check for problematic licenses
+        if: needs.detect-technologies.outputs.has-node == 'true'
+        run: |
+          license-checker --excludePrivatePackages --failOn "GPL;AGPL;LGPL" --summary
+        continue-on-error: true
+
+      - name: Upload license scan results
+        if: needs.detect-technologies.outputs.has-node == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: license-scan-results
+          path: |
+            license-results.json
+            license-summary.txt
+
+  malware-scanning:
+    runs-on: ubuntu-latest
+    if: github.event.inputs.scan_type == 'all' || github.event.inputs.scan_type == '' || github.event_name == 'schedule'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run ClamAV scan
+        uses: djdefi/clamav-action@v0.1.1
+        with:
+          scan-directory: '.'
+          infected-files-action: 'warn'
+
+      - name: Upload malware scan results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: malware-scan-results
+          path: |
+            clamscan.log
+
+  collect-security-results:
+    runs-on: ubuntu-latest
+    needs: [secret-scanning, sast-scanning, dependency-scanning, container-scanning, infrastructure-scanning, license-scanning, malware-scanning]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: security-artifacts
+
+      - name: Merge security results
+        run: |
+          mkdir -p merged-security-results
+          find security-artifacts -name "*.json" -exec cp {} merged-security-results/ \;
+          find security-artifacts -name "*.sarif" -exec cp {} merged-security-results/ \;
+          find security-artifacts -name "*.log" -exec cp {} merged-security-results/ \;
+          find security-artifacts -name "*.txt" -exec cp {} merged-security-results/ \;
+
+      - name: Generate security summary
+        run: |
+          echo "# Security Scan Summary" > security-summary.md
+          echo "Generated on: $(date)" >> security-summary.md
+          echo "" >> security-summary.md
+          
+          # Count findings by severity
+          echo "## Summary by Tool" >> security-summary.md
+          for file in merged-security-results/*.json; do
+            if [ -f "$file" ]; then
+              tool=$(basename "$file" .json)
+              echo "- $tool: $(jq length "$file" 2>/dev/null || echo "N/A") findings" >> security-summary.md
+            fi
+          done
+
+      - name: Upload security summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: pa-qa-security-scan-results
+          path: |
+            merged-security-results/
+            security-summary.md
+          retention-days: 90
+
+      - name: Upload SARIF results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: merged-security-results/
+        continue-on-error: true
+
+  security-report:
+    runs-on: ubuntu-latest
+    needs: [collect-security-results]
+    if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'schedule')
+    steps:
+      - name: Download security results
+        uses: actions/download-artifact@v4
+        with:
+          name: pa-qa-security-scan-results
+          path: security-results
+
+      - name: Post security summary to PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync('security-results/security-summary.md', 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## 🔒 Security Scan Results\n\n${summary}`
+            });
+
+      - name: Notify Slack on high severity findings
+        if: always()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: custom
+          custom_payload: |
+            {
+              channel: '#security-alerts',
+              text: 'Security scan completed for ${{ github.repository }}',
+              attachments: [{
+                color: 'warning',
+                fields: [{
+                  title: 'Repository',
+                  value: '${{ github.repository }}',
+                  short: true
+                }, {
+                  title: 'Branch',
+                  value: '${{ github.ref_name }}',
+                  short: true
+                }, {
+                  title: 'Results',
+                  value: 'Check the workflow for detailed results',
+                  short: false
+                }]
+              }]
+            }
+          webhook_url: ${{ secrets.SLACK_SECURITY_WEBHOOK }}

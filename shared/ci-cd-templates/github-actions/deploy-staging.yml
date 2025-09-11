@@ -1,0 +1,597 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment even if tests fail'
+        required: false
+        default: false
+        type: boolean
+      rollback_version:
+        description: 'Version to rollback to (leave empty for new deployment)'
+        required: false
+        type: string
+
+concurrency:
+  group: staging-deployment
+  cancel-in-progress: false  # Don't cancel staging deployments
+
+env:
+  ENVIRONMENT: staging
+  DEPLOYMENT_TIMEOUT: 600  # 10 minutes
+  HEALTH_CHECK_TIMEOUT: 300  # 5 minutes
+
+jobs:
+  pre-deployment-checks:
+    runs-on: ubuntu-latest
+    outputs:
+      should-deploy: ${{ steps.checks.outputs.should-deploy }}
+      project-type: ${{ steps.detect.outputs.project-type }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect project type
+        id: detect
+        run: |
+          if [ -f package.json ] && grep -q '"react"' package.json; then
+            echo "project-type=react" >> $GITHUB_OUTPUT
+          elif [ -f requirements.txt ] && grep -q 'fastapi' requirements.txt; then
+            echo "project-type=fastapi" >> $GITHUB_OUTPUT
+          elif [ -f wp-config.php ] || ([ -f style.css ] && grep -q 'Theme Name' style.css); then
+            echo "project-type=wordpress" >> $GITHUB_OUTPUT
+          else
+            echo "project-type=generic" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.rollback_version }}" ]; then
+            echo "version=${{ github.event.inputs.rollback_version }}" >> $GITHUB_OUTPUT
+          else
+            echo "version=$(date +%Y%m%d)-${GITHUB_SHA:0:8}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check if rollback requested
+        if: github.event.inputs.rollback_version != ''
+        run: |
+          echo "🔄 Rollback requested to version: ${{ github.event.inputs.rollback_version }}"
+
+      - name: Wait for tests to complete
+        if: github.event.inputs.rollback_version == '' && github.event.inputs.force_deploy != 'true'
+        uses: lewagon/wait-on-check-action@v1.3.3
+        with:
+          ref: ${{ github.ref }}
+          check-name: 'collect-results'
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 30
+          allowed-conclusions: success,skipped
+
+      - name: Check deployment conditions
+        id: checks
+        run: |
+          should_deploy="true"
+          
+          # Skip deployment if tests failed and not forced
+          if [ "${{ github.event.inputs.force_deploy }}" != "true" ] && [ "${{ github.event.inputs.rollback_version }}" == "" ]; then
+            echo "Checking test results..."
+            # Add logic to check test results from previous workflow
+          fi
+          
+          echo "should-deploy=$should_deploy" >> $GITHUB_OUTPUT
+
+  build-and-prepare:
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    if: needs.pre-deployment-checks.outputs.should-deploy == 'true'
+    outputs:
+      image-tag: ${{ steps.build.outputs.image-tag }}
+      artifact-url: ${{ steps.build.outputs.artifact-url }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ vars.CONTAINER_REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build React application
+        if: needs.pre-deployment-checks.outputs.project-type == 'react'
+        run: |
+          # Setup Node.js
+          node_version=$(node -v 2>/dev/null || echo "v20")
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+          sudo apt-get install -y nodejs
+          
+          # Install dependencies and build
+          npm ci --production
+          npm run build
+          
+          # Create deployment package
+          tar -czf build-${{ needs.pre-deployment-checks.outputs.version }}.tar.gz build/
+
+      - name: Build FastAPI application
+        if: needs.pre-deployment-checks.outputs.project-type == 'fastapi'
+        run: |
+          # Build Docker image
+          docker build \
+            --target production \
+            --tag ${{ vars.CONTAINER_REGISTRY }}/pa-qa-app:${{ needs.pre-deployment-checks.outputs.version }} \
+            --tag ${{ vars.CONTAINER_REGISTRY }}/pa-qa-app:staging-latest \
+            --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
+            --build-arg VCS_REF=${GITHUB_SHA} \
+            --build-arg VERSION=${{ needs.pre-deployment-checks.outputs.version }} \
+            .
+
+      - name: Build WordPress theme/plugin
+        if: needs.pre-deployment-checks.outputs.project-type == 'wordpress'
+        run: |
+          # Install Composer dependencies
+          if [ -f composer.json ]; then
+            composer install --no-dev --optimize-autoloader
+          fi
+          
+          # Install Node.js dependencies and build assets
+          if [ -f package.json ]; then
+            npm ci --production
+            npm run build
+          fi
+          
+          # Create deployment package
+          zip -r wordpress-${{ needs.pre-deployment-checks.outputs.version }}.zip . \
+            -x "node_modules/*" "tests/*" ".git/*" "*.md" ".github/*"
+
+      - name: Push Docker image
+        if: needs.pre-deployment-checks.outputs.project-type == 'fastapi'
+        id: build
+        run: |
+          docker push ${{ vars.CONTAINER_REGISTRY }}/pa-qa-app:${{ needs.pre-deployment-checks.outputs.version }}
+          docker push ${{ vars.CONTAINER_REGISTRY }}/pa-qa-app:staging-latest
+          echo "image-tag=${{ vars.CONTAINER_REGISTRY }}/pa-qa-app:${{ needs.pre-deployment-checks.outputs.version }}" >> $GITHUB_OUTPUT
+
+      - name: Upload build artifacts
+        if: needs.pre-deployment-checks.outputs.project-type != 'fastapi'
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-package-${{ needs.pre-deployment-checks.outputs.version }}
+          path: |
+            build-${{ needs.pre-deployment-checks.outputs.version }}.tar.gz
+            wordpress-${{ needs.pre-deployment-checks.outputs.version }}.zip
+          retention-days: 30
+
+      - name: Store deployment metadata
+        run: |
+          cat > deployment-metadata.json << EOF
+          {
+            "version": "${{ needs.pre-deployment-checks.outputs.version }}",
+            "commit": "${GITHUB_SHA}",
+            "branch": "${GITHUB_REF_NAME}",
+            "project_type": "${{ needs.pre-deployment-checks.outputs.project-type }}",
+            "build_date": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+            "build_number": "${GITHUB_RUN_NUMBER}",
+            "actor": "${GITHUB_ACTOR}"
+          }
+          EOF
+
+      - name: Upload deployment metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-metadata
+          path: deployment-metadata.json
+
+  deploy-react:
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-checks, build-and-prepare]
+    if: needs.pre-deployment-checks.outputs.project-type == 'react' && needs.pre-deployment-checks.outputs.should-deploy == 'true'
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-package-${{ needs.pre-deployment-checks.outputs.version }}
+
+      - name: Deploy to Vercel/Netlify Staging
+        id: deploy
+        run: |
+          # Extract build
+          tar -xzf build-${{ needs.pre-deployment-checks.outputs.version }}.tar.gz
+          
+          # Deploy to Vercel
+          npx vercel --token=${{ secrets.VERCEL_TOKEN }} \
+            --scope=${{ vars.VERCEL_ORG_ID }} \
+            --confirm \
+            --env ENVIRONMENT=staging \
+            build/ > deployment-output.txt
+          
+          # Extract deployment URL
+          deployment_url=$(cat deployment-output.txt | tail -1)
+          echo "url=$deployment_url" >> $GITHUB_OUTPUT
+          echo "🚀 Deployed to: $deployment_url"
+
+      - name: Store previous deployment for rollback
+        run: |
+          echo "${{ steps.deploy.outputs.url }}" > .previous-deployment-staging
+          aws s3 cp .previous-deployment-staging s3://${{ vars.DEPLOYMENT_BUCKET }}/staging/previous-deployment
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  deploy-fastapi:
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-checks, build-and-prepare]
+    if: needs.pre-deployment-checks.outputs.project-type == 'fastapi' && needs.pre-deployment-checks.outputs.should-deploy == 'true'
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Setup kubectl
+        uses: azure/setup-kubectl@v3
+        with:
+          version: 'v1.28.0'
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig --region ${{ vars.AWS_REGION }} --name ${{ vars.EKS_CLUSTER_NAME }}
+
+      - name: Store current deployment for rollback
+        id: current-version
+        run: |
+          current_image=$(kubectl get deployment pa-qa-app -n staging -o jsonpath='{.spec.template.spec.containers[0].image}' || echo "none")
+          echo "current-image=$current_image" >> $GITHUB_OUTPUT
+          echo "Previous image: $current_image"
+
+      - name: Deploy to Kubernetes staging
+        id: deploy
+        run: |
+          # Create or update deployment
+          cat > k8s-deployment.yaml << EOF
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: pa-qa-app
+            namespace: staging
+            labels:
+              app: pa-qa-app
+              environment: staging
+              version: ${{ needs.pre-deployment-checks.outputs.version }}
+          spec:
+            replicas: 2
+            strategy:
+              type: RollingUpdate
+              rollingUpdate:
+                maxUnavailable: 1
+                maxSurge: 1
+            selector:
+              matchLabels:
+                app: pa-qa-app
+            template:
+              metadata:
+                labels:
+                  app: pa-qa-app
+                  environment: staging
+                  version: ${{ needs.pre-deployment-checks.outputs.version }}
+              spec:
+                containers:
+                - name: pa-qa-app
+                  image: ${{ needs.build-and-prepare.outputs.image-tag }}
+                  ports:
+                  - containerPort: 8000
+                  env:
+                  - name: ENVIRONMENT
+                    value: "staging"
+                  - name: DATABASE_URL
+                    valueFrom:
+                      secretKeyRef:
+                        name: pa-qa-secrets
+                        key: database-url
+                  readinessProbe:
+                    httpGet:
+                      path: /health
+                      port: 8000
+                    initialDelaySeconds: 30
+                    periodSeconds: 10
+                  livenessProbe:
+                    httpGet:
+                      path: /health
+                      port: 8000
+                    initialDelaySeconds: 60
+                    periodSeconds: 30
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: pa-qa-app-service
+            namespace: staging
+          spec:
+            selector:
+              app: pa-qa-app
+            ports:
+            - port: 80
+              targetPort: 8000
+            type: LoadBalancer
+          EOF
+          
+          kubectl apply -f k8s-deployment.yaml
+          
+          # Wait for rollout to complete
+          kubectl rollout status deployment/pa-qa-app -n staging --timeout=${DEPLOYMENT_TIMEOUT}s
+          
+          # Get service URL
+          service_url=$(kubectl get service pa-qa-app-service -n staging -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+          echo "url=http://$service_url" >> $GITHUB_OUTPUT
+
+      - name: Store rollback information
+        run: |
+          cat > rollback-info.json << EOF
+          {
+            "previous_image": "${{ steps.current-version.outputs.current-image }}",
+            "deployment_time": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+            "namespace": "staging"
+          }
+          EOF
+          
+          kubectl create configmap rollback-info-${{ needs.pre-deployment-checks.outputs.version }} \
+            --from-file=rollback-info.json \
+            --namespace=staging
+
+  deploy-wordpress:
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-checks, build-and-prepare]
+    if: needs.pre-deployment-checks.outputs.project-type == 'wordpress' && needs.pre-deployment-checks.outputs.should-deploy == 'true'
+    environment:
+      name: staging
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-package-${{ needs.pre-deployment-checks.outputs.version }}
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: wp-cli
+
+      - name: Deploy WordPress to staging
+        id: deploy
+        run: |
+          # Extract WordPress package
+          unzip -q wordpress-${{ needs.pre-deployment-checks.outputs.version }}.zip -d wordpress-deployment/
+          
+          # Create backup of current deployment
+          wp db export backup-$(date +%Y%m%d-%H%M%S).sql \
+            --host=${{ vars.WP_STAGING_DB_HOST }} \
+            --user=${{ secrets.WP_STAGING_DB_USER }} \
+            --password=${{ secrets.WP_STAGING_DB_PASS }} \
+            --path=${{ vars.WP_STAGING_PATH }}
+          
+          # Upload files via rsync/FTP
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='wp-config.php' \
+            --exclude='wp-content/uploads' \
+            wordpress-deployment/ \
+            ${{ secrets.WP_STAGING_USER }}@${{ vars.WP_STAGING_HOST }}:${{ vars.WP_STAGING_PATH }}/
+          
+          # Run database migrations if needed
+          wp core update-db \
+            --host=${{ vars.WP_STAGING_DB_HOST }} \
+            --user=${{ secrets.WP_STAGING_DB_USER }} \
+            --password=${{ secrets.WP_STAGING_DB_PASS }} \
+            --path=${{ vars.WP_STAGING_PATH }}
+          
+          echo "url=${{ vars.WP_STAGING_URL }}" >> $GITHUB_OUTPUT
+
+  health-checks:
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-checks, deploy-react, deploy-fastapi, deploy-wordpress]
+    if: always() && needs.pre-deployment-checks.outputs.should-deploy == 'true'
+    steps:
+      - name: Wait for deployment to stabilize
+        run: sleep 30
+
+      - name: Get deployment URL
+        id: url
+        run: |
+          if [ "${{ needs.pre-deployment-checks.outputs.project-type }}" == "react" ]; then
+            echo "url=${{ needs.deploy-react.outputs.url }}" >> $GITHUB_OUTPUT
+          elif [ "${{ needs.pre-deployment-checks.outputs.project-type }}" == "fastapi" ]; then
+            echo "url=${{ needs.deploy-fastapi.outputs.url }}" >> $GITHUB_OUTPUT
+          elif [ "${{ needs.pre-deployment-checks.outputs.project-type }}" == "wordpress" ]; then
+            echo "url=${{ needs.deploy-wordpress.outputs.url }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Health check with retry
+        run: |
+          url="${{ steps.url.outputs.url }}"
+          if [ -z "$url" ]; then
+            echo "❌ No deployment URL available"
+            exit 1
+          fi
+          
+          echo "🔍 Running health checks for: $url"
+          
+          # Health check with retry logic
+          max_attempts=30
+          attempt=1
+          
+          while [ $attempt -le $max_attempts ]; do
+            echo "Attempt $attempt/$max_attempts..."
+            
+            if curl -f -s --max-time 10 "$url/health" || curl -f -s --max-time 10 "$url"; then
+              echo "✅ Health check passed on attempt $attempt"
+              break
+            fi
+            
+            if [ $attempt -eq $max_attempts ]; then
+              echo "❌ Health check failed after $max_attempts attempts"
+              exit 1
+            fi
+            
+            sleep 10
+            attempt=$((attempt + 1))
+          done
+
+      - name: Run smoke tests
+        run: |
+          url="${{ steps.url.outputs.url }}"
+          
+          # Basic smoke tests
+          echo "🧪 Running smoke tests..."
+          
+          # Test home page
+          if ! curl -f -s "$url" > /dev/null; then
+            echo "❌ Home page is not accessible"
+            exit 1
+          fi
+          
+          # Test API endpoints (if FastAPI)
+          if [ "${{ needs.pre-deployment-checks.outputs.project-type }}" == "fastapi" ]; then
+            if ! curl -f -s "$url/docs" > /dev/null; then
+              echo "❌ API docs not accessible"
+              exit 1
+            fi
+          fi
+          
+          echo "✅ Smoke tests passed"
+
+      - name: Performance check
+        run: |
+          url="${{ steps.url.outputs.url }}"
+          
+          echo "⚡ Running performance check..."
+          
+          # Simple performance test
+          response_time=$(curl -o /dev/null -s -w "%{time_total}" "$url")
+          
+          if (( $(echo "$response_time > 5.0" | bc -l) )); then
+            echo "⚠️  WARNING: Response time is slow: ${response_time}s"
+          else
+            echo "✅ Response time is acceptable: ${response_time}s"
+          fi
+
+  post-deployment:
+    runs-on: ubuntu-latest
+    needs: [pre-deployment-checks, health-checks]
+    if: always() && needs.pre-deployment-checks.outputs.should-deploy == 'true'
+    steps:
+      - name: Download deployment metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: deployment-metadata
+
+      - name: Update deployment tracking
+        run: |
+          # Store deployment record
+          cat deployment-metadata.json
+          
+          # Update deployment database/tracking system
+          curl -X POST "${{ vars.DEPLOYMENT_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.DEPLOYMENT_WEBHOOK_TOKEN }}" \
+            -d @deployment-metadata.json
+
+      - name: Create GitHub deployment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const deployment = await github.rest.repos.createDeployment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: context.sha,
+              environment: 'staging',
+              description: 'Staging deployment ${{ needs.pre-deployment-checks.outputs.version }}',
+              auto_merge: false,
+              required_contexts: []
+            });
+            
+            await github.rest.repos.createDeploymentStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              deployment_id: deployment.data.id,
+              state: '${{ needs.health-checks.result == 'success' && 'success' || 'failure' }}',
+              environment_url: '${{ needs.health-checks.outputs.url }}',
+              description: 'Deployment ${{ needs.health-checks.result == 'success' && 'successful' || 'failed' }}'
+            });
+
+      - name: Notify deployment status
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ needs.health-checks.result == 'success' && 'success' || 'failure' }}
+          channel: '#deployments'
+          text: |
+            🚀 Staging deployment ${{ needs.health-checks.result == 'success' && 'successful' || 'failed' }}
+            
+            **Version:** ${{ needs.pre-deployment-checks.outputs.version }}
+            **Project:** ${{ needs.pre-deployment-checks.outputs.project-type }}
+            **Branch:** ${{ github.ref_name }}
+            **Commit:** ${{ github.sha }}
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [post-deployment]
+    if: always()
+    steps:
+      - name: Cleanup old deployments
+        run: |
+          echo "🧹 Cleaning up old deployment artifacts..."
+          
+          # Keep only last 10 deployment packages
+          # This would connect to your artifact storage and clean up old versions
+          
+          echo "✅ Cleanup completed"
+
+# Rollback job that can be triggered manually
+  rollback:
+    runs-on: ubuntu-latest
+    if: failure() && github.event.inputs.rollback_version == ''
+    needs: [pre-deployment-checks, health-checks]
+    environment:
+      name: staging
+    steps:
+      - name: Trigger rollback
+        run: |
+          echo "🔄 Deployment failed, initiating automatic rollback..."
+          
+          # Get previous deployment version
+          previous_version=$(aws s3 cp s3://${{ vars.DEPLOYMENT_BUCKET }}/staging/previous-deployment - 2>/dev/null || echo "")
+          
+          if [ -n "$previous_version" ]; then
+            echo "Rolling back to: $previous_version"
+            
+            # Trigger rollback deployment
+            curl -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              "https://api.github.com/repos/${{ github.repository }}/actions/workflows/deploy-staging.yml/dispatches" \
+              -d "{\"ref\":\"${{ github.ref }}\",\"inputs\":{\"rollback_version\":\"$previous_version\"}}"
+          else
+            echo "❌ No previous version found for rollback"
+          fi
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}

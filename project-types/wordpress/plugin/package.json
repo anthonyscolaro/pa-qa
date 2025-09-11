@@ -1,0 +1,73 @@
+{
+  "name": "pa-qa-wordpress-plugin-testing",
+  "version": "1.0.0",
+  "description": "WordPress plugin testing template with PHPUnit 9.x and @wordpress/env",
+  "keywords": [
+    "wordpress",
+    "plugin",
+    "testing",
+    "phpunit",
+    "wp-env"
+  ],
+  "author": "PA-QA Framework",
+  "license": "GPL-2.0-or-later",
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "scripts": {
+    "wp-env": "wp-env",
+    "env:start": "wp-env start",
+    "env:stop": "wp-env stop",
+    "env:clean": "wp-env clean",
+    "env:reset": "wp-env clean all && wp-env start",
+    "env:destroy": "wp-env destroy",
+    "env:logs": "wp-env logs",
+    "env:cli": "wp-env run cli wp",
+    "env:tests-cli": "wp-env run tests-cli wp",
+    "test": "composer test",
+    "test:unit": "composer test:unit",
+    "test:integration": "composer test:integration",
+    "test:coverage": "composer test:coverage",
+    "test:multisite": "wp-env start multisite && composer test:multisite",
+    "test:watch": "composer test:watch",
+    "cs:check": "composer cs:check",
+    "cs:fix": "composer cs:fix",
+    "quality": "composer quality:check",
+    "setup": "npm run env:start && composer install && composer setup:wp-env",
+    "setup:ci": "composer setup:ci",
+    "build": "echo 'No build process required for WordPress plugin'",
+    "lint": "npm run cs:check",
+    "lint:fix": "npm run cs:fix",
+    "allure:generate": "composer allure:generate",
+    "allure:serve": "composer allure:serve",
+    "docs": "composer docs:generate",
+    "clean": "rm -rf tests/results tests/coverage tests/allure-results tests/allure-report vendor node_modules",
+    "prepare": "husky install || true"
+  },
+  "devDependencies": {
+    "@wordpress/env": "^8.7.0",
+    "husky": "^8.0.3",
+    "lint-staged": "^15.2.0"
+  },
+  "lint-staged": {
+    "*.php": [
+      "composer cs:fix",
+      "composer cs:check"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged && composer pre-commit",
+      "pre-push": "composer pre-push"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/pa-qa/wordpress-plugin-testing.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pa-qa/wordpress-plugin-testing/issues"
+  },
+  "homepage": "https://docs.projectassistant.ai/testing/wordpress"
+}

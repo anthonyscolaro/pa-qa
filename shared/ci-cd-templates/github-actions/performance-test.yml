@@ -1,0 +1,570 @@
+name: Performance Testing Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'app/**'
+      - '**.php'
+      - 'package.json'
+      - 'requirements.txt'
+      - 'composer.json'
+      - 'Dockerfile'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'app/**'
+      - '**.php'
+      - 'package.json'
+      - 'requirements.txt'
+      - 'composer.json'
+      - 'Dockerfile'
+  schedule:
+    # Run performance tests daily at 3 AM UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch:
+    inputs:
+      test_duration:
+        description: 'Test duration in minutes'
+        required: false
+        default: '5'
+        type: string
+      user_count:
+        description: 'Number of virtual users'
+        required: false
+        default: '100'
+        type: string
+      environment:
+        description: 'Target environment'
+        required: false
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_COLOR: true
+  TEST_DURATION: ${{ github.event.inputs.test_duration || '5' }}
+  USER_COUNT: ${{ github.event.inputs.user_count || '100' }}
+  TARGET_ENV: ${{ github.event.inputs.environment || 'staging' }}
+
+jobs:
+  detect-project-type:
+    runs-on: ubuntu-latest
+    outputs:
+      is-react: ${{ steps.detect.outputs.is-react }}
+      is-fastapi: ${{ steps.detect.outputs.is-fastapi }}
+      is-wordpress: ${{ steps.detect.outputs.is-wordpress }}
+      has-docker: ${{ steps.detect.outputs.has-docker }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Detect project type
+        id: detect
+        run: |
+          echo "is-react=$([ -f package.json ] && grep -q '"react"' package.json && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "is-fastapi=$([ -f requirements.txt ] && grep -q 'fastapi' requirements.txt && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "is-wordpress=$([ -f wp-config.php ] || [ -f style.css ] && grep -q 'Theme Name' style.css && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+          echo "has-docker=$([ -f Dockerfile ] && echo 'true' || echo 'false')" >> $GITHUB_OUTPUT
+
+  lighthouse-audit:
+    runs-on: ubuntu-latest
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.is-react == 'true' || needs.detect-project-type.outputs.is-wordpress == 'true'
+    strategy:
+      matrix:
+        device: [desktop, mobile]
+        page: [home, about, contact]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies and build (React)
+        if: needs.detect-project-type.outputs.is-react == 'true'
+        run: |
+          npm ci
+          npm run build
+
+      - name: Start application (React)
+        if: needs.detect-project-type.outputs.is-react == 'true'
+        run: |
+          npm run start &
+          npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Setup WordPress environment
+        if: needs.detect-project-type.outputs.is-wordpress == 'true'
+        run: |
+          npm install -g @wordpress/env
+          wp-env start
+          wp-env run cli wp core install \
+            --url="http://localhost:8888" \
+            --title="Performance Test Site" \
+            --admin_user="admin" \
+            --admin_password="password" \
+            --admin_email="admin@test.local" \
+            --skip-email
+
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli
+
+      - name: Run Lighthouse audit
+        run: |
+          lhci autorun \
+            --upload.target=filesystem \
+            --upload.outputDir=lighthouse-results \
+            --collect.settings.preset=${{ matrix.device }} \
+            --collect.numberOfRuns=3 \
+            --collect.startServerCommand="echo 'Server already running'" \
+            --collect.url=http://localhost:${{ needs.detect-project-type.outputs.is-react == 'true' && '3000' || '8888' }}/${{ matrix.page }}
+        continue-on-error: true
+
+      - name: Upload Lighthouse results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-results-${{ matrix.device }}-${{ matrix.page }}
+          path: lighthouse-results/
+
+      - name: Stop WordPress environment
+        if: needs.detect-project-type.outputs.is-wordpress == 'true' && always()
+        run: wp-env stop
+
+  load-testing:
+    runs-on: ubuntu-latest
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.has-docker == 'true'
+    strategy:
+      matrix:
+        test-type: [smoke, load, stress, spike]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build application image
+        run: |
+          docker build -t performance-test-app:latest .
+
+      - name: Start application with dependencies
+        run: |
+          docker-compose -f docker-compose.performance.yml up -d
+          sleep 30
+
+      - name: Wait for application to be ready
+        run: |
+          timeout 120 bash -c 'until curl -f http://localhost:8000/health 2>/dev/null || curl -f http://localhost:3000 2>/dev/null || curl -f http://localhost:8888 2>/dev/null; do sleep 2; done'
+
+      - name: Setup K6 for load testing
+        run: |
+          curl -s https://api.github.com/repos/grafana/k6/releases/latest | \
+          grep browser_download_url | \
+          grep linux-amd64 | \
+          cut -d '"' -f 4 | \
+          xargs curl -L -o k6.tar.gz
+          tar -xzf k6.tar.gz --strip-components=1
+
+      - name: Run K6 load tests
+        run: |
+          ./k6 run \
+            --duration=${TEST_DURATION}m \
+            --vus=${{ matrix.test-type == 'smoke' && '1' || matrix.test-type == 'load' && env.USER_COUNT || matrix.test-type == 'stress' && '200' || '1' }} \
+            --stages='${{ matrix.test-type == 'spike' && '[{"duration":"1m","target":"1"},{"duration":"30s","target":"300"},{"duration":"1m","target":"1"}]' || '[]' }}' \
+            --out json=k6-results-${{ matrix.test-type }}.json \
+            --out csv=k6-results-${{ matrix.test-type }}.csv \
+            tests/performance/k6-${{ matrix.test-type }}.js
+        env:
+          K6_WEB_DASHBOARD: true
+          K6_WEB_DASHBOARD_EXPORT: k6-dashboard-${{ matrix.test-type }}.html
+
+      - name: Upload K6 results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: k6-results-${{ matrix.test-type }}
+          path: |
+            k6-results-${{ matrix.test-type }}.*
+            k6-dashboard-${{ matrix.test-type }}.html
+
+      - name: Stop application
+        if: always()
+        run: docker-compose -f docker-compose.performance.yml down
+
+  api-performance:
+    runs-on: ubuntu-latest
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.is-fastapi == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install locust pytest-benchmark
+
+      - name: Start FastAPI application
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 10
+        env:
+          DATABASE_URL: sqlite:///./test.db
+
+      - name: Wait for API to be ready
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done'
+
+      - name: Run Locust performance tests
+        run: |
+          locust --headless \
+            --users ${{ env.USER_COUNT }} \
+            --spawn-rate 10 \
+            --run-time ${TEST_DURATION}m \
+            --host http://localhost:8000 \
+            --locustfile tests/performance/locustfile.py \
+            --html locust-report.html \
+            --csv locust-results
+
+      - name: Run API benchmark tests
+        run: |
+          pytest tests/performance/benchmark_tests.py \
+            --benchmark-json=benchmark-results.json \
+            --benchmark-min-rounds=10 \
+            --benchmark-max-time=300
+
+      - name: Upload API performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-performance-results
+          path: |
+            locust-report.html
+            locust-results*
+            benchmark-results.json
+
+  memory-profiling:
+    runs-on: ubuntu-latest
+    needs: detect-project-type
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        if: needs.detect-project-type.outputs.is-react == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Set up Python
+        if: needs.detect-project-type.outputs.is-fastapi == 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Node.js dependencies and profile
+        if: needs.detect-project-type.outputs.is-react == 'true'
+        run: |
+          npm ci
+          npm install -g clinic
+          clinic doctor --autocannon [ -c 100 -d 60 ] -- npm start &
+          sleep 90
+          pkill -f "npm start"
+
+      - name: Install Python dependencies and profile
+        if: needs.detect-project-type.outputs.is-fastapi == 'true'
+        run: |
+          pip install -r requirements.txt
+          pip install memory-profiler py-spy
+          
+          # Start app with profiling
+          py-spy record -o py-spy-profile.svg -d 60 -- uvicorn app.main:app --host 0.0.0.0 --port 8000 &
+          sleep 5
+          
+          # Generate load while profiling
+          curl -X GET http://localhost:8000/health &
+          sleep 65
+
+      - name: Upload profiling results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: memory-profiling-results
+          path: |
+            .clinic/
+            *.svg
+            *.dat
+
+  visual-regression:
+    runs-on: ubuntu-latest
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.is-react == 'true' || needs.detect-project-type.outputs.is-wordpress == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps
+
+      - name: Build and start application (React)
+        if: needs.detect-project-type.outputs.is-react == 'true'
+        run: |
+          npm run build
+          npm run start &
+          npx wait-on http://localhost:3000 --timeout 60000
+
+      - name: Setup WordPress environment
+        if: needs.detect-project-type.outputs.is-wordpress == 'true'
+        run: |
+          npm install -g @wordpress/env
+          wp-env start
+
+      - name: Run visual regression tests
+        run: |
+          npx playwright test \
+            --config=tests/performance/visual-regression.config.js \
+            --reporter=json \
+            --output-dir=visual-test-results
+        env:
+          PWTEST_VIDEO: retain-on-failure
+
+      - name: Upload visual regression results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-regression-results
+          path: |
+            visual-test-results/
+            test-results/
+
+      - name: Stop WordPress environment
+        if: needs.detect-project-type.outputs.is-wordpress == 'true' && always()
+        run: wp-env stop
+
+  database-performance:
+    runs-on: ubuntu-latest
+    needs: detect-project-type
+    if: needs.detect-project-type.outputs.is-fastapi == 'true' || needs.detect-project-type.outputs.is-wordpress == 'true'
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_USER: testuser
+          POSTGRES_DB: perftest
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python for database tests
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install database testing tools
+        run: |
+          pip install sqlalchemy psycopg2-binary pytest-benchmark
+
+      - name: Run database performance tests
+        run: |
+          python tests/performance/database_performance.py \
+            --database-url postgresql://testuser:testpass@localhost:5432/perftest \
+            --output db-performance-results.json
+
+      - name: Upload database performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: database-performance-results
+          path: db-performance-results.json
+
+  collect-performance-results:
+    runs-on: ubuntu-latest
+    needs: [lighthouse-audit, load-testing, api-performance, memory-profiling, visual-regression, database-performance]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: performance-artifacts
+
+      - name: Install performance analysis tools
+        run: |
+          npm install -g lighthouse-ci
+          pip install pandas numpy matplotlib
+
+      - name: Generate performance report
+        run: |
+          python << 'EOF'
+          import json
+          import os
+          import glob
+          from datetime import datetime
+          
+          # Collect all performance data
+          results = {
+              'timestamp': datetime.now().isoformat(),
+              'lighthouse': {},
+              'load_testing': {},
+              'api_performance': {},
+              'memory_profiling': {},
+              'database_performance': {}
+          }
+          
+          # Process Lighthouse results
+          for file in glob.glob('performance-artifacts/**/lighthouse-results/**/*.json', recursive=True):
+              with open(file, 'r') as f:
+                  data = json.load(f)
+                  results['lighthouse'][os.path.basename(file)] = data
+          
+          # Process K6 results
+          for file in glob.glob('performance-artifacts/**/k6-results-*.json', recursive=True):
+              with open(file, 'r') as f:
+                  data = json.load(f)
+                  results['load_testing'][os.path.basename(file)] = data
+          
+          # Save consolidated results
+          with open('performance-summary.json', 'w') as f:
+              json.dump(results, f, indent=2)
+          
+          print("Performance report generated successfully")
+          EOF
+
+      - name: Check performance regression
+        run: |
+          python << 'EOF'
+          import json
+          import sys
+          
+          # Load current results
+          with open('performance-summary.json', 'r') as f:
+              current = json.load(f)
+          
+          # Performance thresholds
+          thresholds = {
+              'lighthouse_performance': 90,
+              'lighthouse_accessibility': 95,
+              'api_response_time_p95': 500,  # ms
+              'memory_usage_max': 512  # MB
+          }
+          
+          # Check thresholds and create report
+          violations = []
+          
+          # Example threshold checks (customize based on your metrics)
+          for lighthouse_file, data in current.get('lighthouse', {}).items():
+              if isinstance(data, dict) and 'lhr' in data:
+                  performance_score = data['lhr']['categories']['performance']['score'] * 100
+                  if performance_score < thresholds['lighthouse_performance']:
+                      violations.append(f"Lighthouse performance score: {performance_score} (threshold: {thresholds['lighthouse_performance']})")
+          
+          if violations:
+              print("⚠️  Performance regressions detected:")
+              for violation in violations:
+                  print(f"  - {violation}")
+              sys.exit(1)
+          else:
+              print("✅ All performance checks passed")
+          EOF
+
+      - name: Upload performance summary
+        uses: actions/upload-artifact@v4
+        with:
+          name: pa-qa-performance-test-results
+          path: |
+            performance-summary.json
+            performance-artifacts/
+          retention-days: 30
+
+      - name: Comment PR with performance results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            if (fs.existsSync('performance-summary.json')) {
+              const summary = JSON.parse(fs.readFileSync('performance-summary.json', 'utf8'));
+              
+              let comment = '## 🚀 Performance Test Results\n\n';
+              comment += `**Test Duration:** ${process.env.TEST_DURATION} minutes\n`;
+              comment += `**Virtual Users:** ${process.env.USER_COUNT}\n\n`;
+              
+              // Add Lighthouse scores if available
+              const lighthouseResults = Object.keys(summary.lighthouse || {});
+              if (lighthouseResults.length > 0) {
+                comment += '### Lighthouse Scores\n';
+                comment += '| Page | Performance | Accessibility | Best Practices | SEO |\n';
+                comment += '|------|-------------|---------------|----------------|-----|\n';
+                // Add lighthouse data processing here
+              }
+              
+              comment += '\n📊 [View detailed results in the workflow artifacts](../actions/runs/${{ github.run_id }})';
+              
+              github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: comment
+              });
+            }
+
+  notify-performance-results:
+    runs-on: ubuntu-latest
+    needs: [collect-performance-results]
+    if: always() && (github.ref == 'refs/heads/main' || github.event_name == 'schedule')
+    steps:
+      - name: Notify Slack on performance issues
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#performance-alerts'
+          text: '🐌 Performance tests failed or detected regressions'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          
+      - name: Notify Slack on success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#performance-alerts'
+          text: '⚡ Performance tests passed successfully'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

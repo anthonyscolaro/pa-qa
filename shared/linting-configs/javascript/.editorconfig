@@ -1,0 +1,342 @@
+# PA-QA Framework - EditorConfig
+# https://editorconfig.org/
+# 
+# This file defines consistent coding styles between different editors and IDEs
+# for the PA-QA JavaScript/TypeScript projects.
+
+# Top-most EditorConfig file
+root = true
+
+# All files
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+# JavaScript and TypeScript files
+[*.{js,jsx,ts,tsx,mjs,cjs}]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# Vue files
+[*.vue]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# JSON files
+[*.{json,jsonc}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# YAML files
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# XML and HTML files
+[*.{xml,html,htm,svg}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# CSS, SCSS, Less files
+[*.{css,scss,sass,less,styl}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Markdown files
+[*.{md,mdx}]
+indent_style = space
+indent_size = 2
+max_line_length = 80
+trim_trailing_whitespace = false
+
+# Package manager files
+[{package.json,package-lock.json}]
+indent_style = space
+indent_size = 2
+
+[yarn.lock]
+indent_style = space
+indent_size = 2
+insert_final_newline = false
+
+[pnpm-lock.yaml]
+indent_style = space
+indent_size = 2
+
+# Configuration files
+[*.config.{js,ts,mjs,cjs}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# TypeScript configuration
+[tsconfig*.json]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# ESLint configuration
+[.eslintrc.*]
+indent_style = space
+indent_size = 2
+
+[eslint.config.{js,ts,mjs,cjs}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Prettier configuration
+[.prettierrc*]
+indent_style = space
+indent_size = 2
+
+# Babel configuration
+[.babelrc*]
+indent_style = space
+indent_size = 2
+
+[babel.config.{js,ts,json}]
+indent_style = space
+indent_size = 2
+
+# Webpack configuration
+[webpack*.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Vite configuration
+[vite*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Vitest configuration
+[vitest*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Jest configuration
+[jest*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Playwright configuration
+[playwright*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Cypress configuration
+[cypress*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Tailwind CSS configuration
+[tailwind*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# PostCSS configuration
+[postcss*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+
+# Stylelint configuration
+[.stylelintrc*]
+indent_style = space
+indent_size = 2
+
+[stylelint*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+
+# Next.js configuration
+[next*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Nuxt.js configuration
+[nuxt*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Remix configuration
+[remix*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Rollup configuration
+[rollup*.config.{js,ts}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Environment files
+[.env*]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# Git files
+[.gitignore]
+indent_style = space
+indent_size = 2
+
+[.gitattributes]
+indent_style = space
+indent_size = 2
+
+# Docker files
+[Dockerfile*]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+[docker-compose*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# CI/CD files
+[.github/**/*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+[.gitlab-ci.yml]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+[bitbucket-pipelines.yml]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+[.circleci/**/*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+max_line_length = 120
+
+# Documentation files
+[docs/**/*.md]
+indent_style = space
+indent_size = 2
+max_line_length = 80
+trim_trailing_whitespace = false
+
+[README*.md]
+indent_style = space
+indent_size = 2
+max_line_length = 80
+trim_trailing_whitespace = false
+
+[CHANGELOG*.md]
+indent_style = space
+indent_size = 2
+max_line_length = 80
+trim_trailing_whitespace = false
+
+# License files
+[LICENSE*]
+indent_style = space
+indent_size = 2
+max_line_length = 80
+
+# Shell scripts
+[*.{sh,bash,zsh}]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# Python files (for tooling scripts)
+[*.py]
+indent_style = space
+indent_size = 4
+max_line_length = 88
+
+# Ruby files (for tooling scripts)
+[*.rb]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# PHP files (for tooling scripts)
+[*.php]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# SQL files
+[*.sql]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# GraphQL files
+[*.{graphql,gql}]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# Protocol Buffer files
+[*.proto]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# TOML files
+[*.toml]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# INI files
+[*.ini]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# Properties files
+[*.properties]
+indent_style = space
+indent_size = 2
+max_line_length = 100
+
+# Log files (read-only, no formatting)
+[*.log]
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+# Binary files (no formatting)
+[*.{png,jpg,jpeg,gif,ico,svg,woff,woff2,ttf,eot,pdf,zip,tar,gz}]
+insert_final_newline = false
+trim_trailing_whitespace = false
+
+# Lock files (generated, minimal formatting)
+[{package-lock.json,yarn.lock,pnpm-lock.yaml,composer.lock,Pipfile.lock,poetry.lock}]
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+# Generated files (minimal formatting)
+[{*.min.js,*.min.css,*.bundle.js,*.bundle.css}]
+insert_final_newline = false
+trim_trailing_whitespace = false

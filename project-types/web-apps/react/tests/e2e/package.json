@@ -1,0 +1,131 @@
+{
+  "name": "pa-qa-react-e2e-tests",
+  "version": "1.0.0",
+  "description": "PA-QA comprehensive E2E test suite for React applications with Playwright",
+  "main": "playwright.config.ts",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:auth": "playwright test tests/auth.spec.ts",
+    "test:journey": "playwright test tests/user-journey.spec.ts",
+    "test:accessibility": "playwright test tests/accessibility.spec.ts",
+    "test:mobile": "playwright test tests/mobile.spec.ts",
+    "test:chrome": "playwright test --project=chromium",
+    "test:firefox": "playwright test --project=firefox",
+    "test:safari": "playwright test --project=webkit",
+    "test:mobile-chrome": "playwright test --project='Mobile Chrome'",
+    "test:mobile-safari": "playwright test --project='Mobile Safari'",
+    "test:parallel": "playwright test --workers=4",
+    "test:serial": "playwright test --workers=1",
+    "test:retry": "playwright test --retries=2",
+    "test:update-snapshots": "playwright test --update-snapshots",
+    "test:trace": "playwright test --trace=on",
+    "test:video": "playwright test --video=on",
+    "test:screenshot": "playwright test --screenshot=on",
+    "report": "playwright show-report",
+    "report:allure": "allure serve allure-results",
+    "report:open": "allure open allure-report",
+    "codegen": "playwright codegen localhost:3000",
+    "install-browsers": "playwright install",
+    "install-deps": "playwright install-deps",
+    "setup": "npm run install-browsers && npm run install-deps",
+    "clean": "rm -rf test-results allure-results allure-report results archives",
+    "clean:auth": "rm -rf .auth",
+    "lint": "eslint . --ext .ts,.tsx",
+    "lint:fix": "eslint . --ext .ts,.tsx --fix",
+    "type-check": "tsc --noEmit",
+    "pre-commit": "npm run lint && npm run type-check",
+    "ci": "npm run clean && npm run setup && npm run test",
+    "ci:parallel": "npm run clean && npm run setup && npm run test:parallel",
+    "docker:build": "docker build -t pa-qa-react-e2e .",
+    "docker:run": "docker run --rm -v $(pwd)/results:/app/results pa-qa-react-e2e",
+    "performance": "playwright test --grep=@performance",
+    "accessibility": "playwright test --grep=@accessibility",
+    "smoke": "playwright test --grep=@smoke",
+    "regression": "playwright test --grep=@regression"
+  },
+  "keywords": [
+    "playwright",
+    "e2e",
+    "testing",
+    "react",
+    "typescript",
+    "accessibility",
+    "mobile",
+    "pa-qa"
+  ],
+  "author": "PA-QA Team",
+  "license": "MIT",
+  "dependencies": {
+    "@playwright/test": "^1.40.0"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.8.2",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "allure-playwright": "^2.9.0",
+    "dotenv": "^16.3.1",
+    "eslint": "^8.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-playwright": "^0.18.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/pa-qa.git",
+    "directory": "project-types/web-apps/react/tests/e2e"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/pa-qa/issues"
+  },
+  "homepage": "https://github.com/your-org/pa-qa#readme",
+  "playwright": {
+    "version": "1.40.0"
+  },
+  "eslintConfig": {
+    "extends": [
+      "@typescript-eslint/recommended",
+      "plugin:playwright/playwright-test",
+      "prettier"
+    ],
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "@typescript-eslint",
+      "playwright"
+    ],
+    "rules": {
+      "@typescript-eslint/no-unused-vars": "error",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "playwright/missing-playwright-await": "error",
+      "playwright/no-networkidle": "warn",
+      "playwright/prefer-web-first-assertions": "error",
+      "playwright/prefer-strict-equal": "error",
+      "playwright/no-page-pause": "error"
+    },
+    "env": {
+      "node": true,
+      "es2022": true
+    },
+    "parserOptions": {
+      "ecmaVersion": 2022,
+      "sourceType": "module"
+    }
+  },
+  "prettier": {
+    "semi": true,
+    "trailingComma": "es5",
+    "singleQuote": true,
+    "printWidth": 100,
+    "tabWidth": 2,
+    "useTabs": false
+  }
+}

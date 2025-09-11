@@ -1,0 +1,130 @@
+{
+  "name": "@pa-qa/linting-configs-javascript",
+  "version": "2.0.0",
+  "description": "Comprehensive ESLint and Prettier configurations for PA-QA JavaScript/TypeScript projects",
+  "keywords": [
+    "eslint",
+    "prettier",
+    "typescript",
+    "react",
+    "vue",
+    "testing",
+    "accessibility",
+    "code-quality",
+    "linting",
+    "formatting"
+  ],
+  "author": "PA-QA Team",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "files": [
+    "eslint.config.js",
+    ".prettierrc.js",
+    "tsconfig.json",
+    "lint-staged.config.js",
+    "vscode-settings.json",
+    ".editorconfig",
+    "husky-setup.sh",
+    "README.md"
+  ],
+  "main": "eslint.config.js",
+  "exports": {
+    ".": "./eslint.config.js",
+    "./eslint": "./eslint.config.js",
+    "./prettier": "./.prettierrc.js",
+    "./typescript": "./tsconfig.json",
+    "./lint-staged": "./lint-staged.config.js",
+    "./vscode": "./vscode-settings.json",
+    "./editorconfig": "./.editorconfig"
+  },
+  "scripts": {
+    "lint": "eslint . --fix",
+    "lint:check": "eslint .",
+    "lint:cache": "eslint . --cache --cache-location node_modules/.cache/eslint/",
+    "lint:staged": "lint-staged",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "format:staged": "prettier --write",
+    "type-check": "tsc --noEmit",
+    "type-check:watch": "tsc --noEmit --watch",
+    "validate": "npm run lint:check && npm run format:check && npm run type-check",
+    "setup": "npm install && npm run setup:husky",
+    "setup:husky": "chmod +x ./husky-setup.sh && ./husky-setup.sh",
+    "clean": "rm -rf node_modules/.cache",
+    "clean:all": "rm -rf node_modules dist coverage .next .nuxt .cache .temp .tmp",
+    "precommit": "lint-staged",
+    "prepush": "npm run validate",
+    "test:config": "node -e \"console.log('Testing ESLint config...'); import('./eslint.config.js').then(() => console.log('✅ ESLint config is valid'))\"",
+    "ci:install": "npm ci --prefer-offline --no-audit",
+    "ci:lint": "npm run lint:check",
+    "ci:format": "npm run format:check",
+    "ci:typecheck": "npm run type-check",
+    "ci:validate": "npm run ci:lint && npm run ci:format && npm run ci:typecheck"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.8.0",
+    "@prettier/plugin-xml": "^3.4.1",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "eslint": "^9.8.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-import-resolver-typescript": "^3.6.1",
+    "eslint-plugin-import": "^2.29.1",
+    "eslint-plugin-jest": "^28.6.0",
+    "eslint-plugin-jsx-a11y": "^6.9.0",
+    "eslint-plugin-n": "^17.10.1",
+    "eslint-plugin-promise": "^6.4.0",
+    "eslint-plugin-react": "^7.35.0",
+    "eslint-plugin-react-hooks": "^4.6.2",
+    "eslint-plugin-react-refresh": "^0.4.9",
+    "eslint-plugin-security": "^3.0.1",
+    "eslint-plugin-sonarjs": "^1.0.4",
+    "eslint-plugin-testing-library": "^6.2.2",
+    "eslint-plugin-unicorn": "^55.0.0",
+    "eslint-plugin-vitest": "^0.5.4",
+    "eslint-plugin-vue": "^9.27.0",
+    "globals": "^15.9.0",
+    "prettier": "^3.3.3",
+    "prettier-plugin-organize-imports": "^4.0.0",
+    "prettier-plugin-packagejson": "^2.5.0",
+    "typescript": "^5.5.4",
+    "vue-eslint-parser": "^9.4.3"
+  },
+  "devDependencies": {
+    "husky": "^9.1.4",
+    "lint-staged": "^15.2.7"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "vue": ">=3.0.0"
+  },
+  "peerDependenciesMeta": {
+    "react": {
+      "optional": true
+    },
+    "vue": {
+      "optional": true
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/pa-qa.git",
+    "directory": "shared/linting-configs/javascript"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/pa-qa/issues"
+  },
+  "homepage": "https://github.com/your-org/pa-qa/tree/main/shared/linting-configs/javascript#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "volta": {
+    "node": "20.16.0",
+    "npm": "10.8.1"
+  },
+  "packageManager": "npm@10.8.1"
+}

@@ -1,0 +1,462 @@
+<?php
+
+// Common PHP Stubs for PHPStan
+// These stubs help PHPStan understand common PHP patterns and third-party libraries
+
+// Common testing classes
+class PHPUnit_Framework_TestCase {
+    public function setUp(): void {}
+    public function tearDown(): void {}
+    public function setUpBeforeClass(): void {}
+    public function tearDownAfterClass(): void {}
+    public function assertTrue(bool $condition, string $message = ''): void {}
+    public function assertFalse(bool $condition, string $message = ''): void {}
+    public function assertEquals(mixed $expected, mixed $actual, string $message = ''): void {}
+    public function assertNotEquals(mixed $expected, mixed $actual, string $message = ''): void {}
+    public function assertSame(mixed $expected, mixed $actual, string $message = ''): void {}
+    public function assertNotSame(mixed $expected, mixed $actual, string $message = ''): void {}
+    public function assertInstanceOf(string $expected, mixed $actual, string $message = ''): void {}
+    public function assertNotInstanceOf(string $expected, mixed $actual, string $message = ''): void {}
+    public function assertNull(mixed $actual, string $message = ''): void {}
+    public function assertNotNull(mixed $actual, string $message = ''): void {}
+    public function assertEmpty(mixed $actual, string $message = ''): void {}
+    public function assertNotEmpty(mixed $actual, string $message = ''): void {}
+    public function assertCount(int $expectedCount, \Countable|array $haystack, string $message = ''): void {}
+    public function assertNotCount(int $expectedCount, \Countable|array $haystack, string $message = ''): void {}
+    public function assertContains(mixed $needle, iterable $haystack, string $message = ''): void {}
+    public function assertNotContains(mixed $needle, iterable $haystack, string $message = ''): void {}
+    public function assertStringContains(string $needle, string $haystack, string $message = ''): void {}
+    public function assertStringNotContains(string $needle, string $haystack, string $message = ''): void {}
+    public function assertArrayHasKey(int|string $key, array $array, string $message = ''): void {}
+    public function assertArrayNotHasKey(int|string $key, array $array, string $message = ''): void {}
+    public function assertGreaterThan(mixed $expected, mixed $actual, string $message = ''): void {}
+    public function assertGreaterThanOrEqual(mixed $expected, mixed $actual, string $message = ''): void {}
+    public function assertLessThan(mixed $expected, mixed $actual, string $message = ''): void {}
+    public function assertLessThanOrEqual(mixed $expected, mixed $actual, string $message = ''): void {}
+    public function expectException(string $exception): void {}
+    public function expectExceptionCode(int $code): void {}
+    public function expectExceptionMessage(string $message): void {}
+    public function expectExceptionMessageMatches(string $regularExpression): void {}
+    public function createMock(string $originalClassName): mixed {}
+    public function createPartialMock(string $originalClassName, array $methods): mixed {}
+    public function createStub(string $originalClassName): mixed {}
+    public function getMockBuilder(string $className): mixed {}
+}
+
+// Mockery
+namespace Mockery {
+    interface MockInterface {
+        public function shouldReceive(string $method): mixed;
+        public function shouldNotReceive(string $method): mixed;
+        public function allows(array|string $method = []): mixed;
+        public function expects(string $method = null): mixed;
+        public function makePartial(): mixed;
+    }
+
+    class Mock implements MockInterface {
+        public function shouldReceive(string $method): mixed {}
+        public function shouldNotReceive(string $method): mixed {}
+        public function allows(array|string $method = []): mixed {}
+        public function expects(string $method = null): mixed {}
+        public function makePartial(): mixed {}
+    }
+}
+
+// Monolog Logger
+namespace Monolog {
+    class Logger {
+        public function __construct(string $name, array $handlers = [], array $processors = []) {}
+        public function emergency(string $message, array $context = []): void {}
+        public function alert(string $message, array $context = []): void {}
+        public function critical(string $message, array $context = []): void {}
+        public function error(string $message, array $context = []): void {}
+        public function warning(string $message, array $context = []): void {}
+        public function notice(string $message, array $context = []): void {}
+        public function info(string $message, array $context = []): void {}
+        public function debug(string $message, array $context = []): void {}
+        public function log(mixed $level, string $message, array $context = []): void {}
+        public function addRecord(int $level, string $message, array $context = []): bool {}
+        public function isHandling(int $level): bool {}
+        public function pushHandler(mixed $handler): static {}
+        public function popHandler(): mixed {}
+        public function setHandlers(array $handlers): static {}
+        public function getHandlers(): array {}
+        public function pushProcessor(callable $callback): static {}
+        public function popProcessor(): callable {}
+        public function getProcessors(): array {}
+        public function useMicrosecondTimestamps(bool $micro): static {}
+        public function useLoggingLoopholeDetection(bool $detectCycles): static {}
+    }
+}
+
+// PSR Interfaces
+namespace Psr\Log {
+    interface LoggerInterface {
+        public function emergency(string $message, array $context = []): void;
+        public function alert(string $message, array $context = []): void;
+        public function critical(string $message, array $context = []): void;
+        public function error(string $message, array $context = []): void;
+        public function warning(string $message, array $context = []): void;
+        public function notice(string $message, array $context = []): void;
+        public function info(string $message, array $context = []): void;
+        public function debug(string $message, array $context = []): void;
+        public function log(mixed $level, string $message, array $context = []): void;
+    }
+}
+
+namespace Psr\Http\Message {
+    interface MessageInterface {
+        public function getProtocolVersion(): string;
+        public function withProtocolVersion(string $version): static;
+        public function getHeaders(): array;
+        public function hasHeader(string $name): bool;
+        public function getHeader(string $name): array;
+        public function getHeaderLine(string $name): string;
+        public function withHeader(string $name, string|array $value): static;
+        public function withAddedHeader(string $name, string|array $value): static;
+        public function withoutHeader(string $name): static;
+        public function getBody(): mixed;
+        public function withBody(mixed $body): static;
+    }
+
+    interface RequestInterface extends MessageInterface {
+        public function getRequestTarget(): string;
+        public function withRequestTarget(mixed $requestTarget): static;
+        public function getMethod(): string;
+        public function withMethod(string $method): static;
+        public function getUri(): mixed;
+        public function withUri(mixed $uri, bool $preserveHost = false): static;
+    }
+
+    interface ResponseInterface extends MessageInterface {
+        public function getStatusCode(): int;
+        public function withStatus(int $code, string $reasonPhrase = ''): static;
+        public function getReasonPhrase(): string;
+    }
+
+    interface ServerRequestInterface extends RequestInterface {
+        public function getServerParams(): array;
+        public function getCookieParams(): array;
+        public function withCookieParams(array $cookies): static;
+        public function getQueryParams(): array;
+        public function withQueryParams(array $query): static;
+        public function getUploadedFiles(): array;
+        public function withUploadedFiles(array $uploadedFiles): static;
+        public function getParsedBody(): null|array|object;
+        public function withParsedBody(null|array|object $data): static;
+        public function getAttributes(): array;
+        public function getAttribute(string $name, mixed $default = null): mixed;
+        public function withAttribute(string $name, mixed $value): static;
+        public function withoutAttribute(string $name): static;
+    }
+}
+
+namespace Psr\Container {
+    interface ContainerInterface {
+        public function get(string $id): mixed;
+        public function has(string $id): bool;
+    }
+}
+
+namespace Psr\Cache {
+    interface CacheItemInterface {
+        public function getKey(): string;
+        public function get(): mixed;
+        public function isHit(): bool;
+        public function set(mixed $value): static;
+        public function expiresAt(\DateTimeInterface $expiration = null): static;
+        public function expiresAfter(\DateInterval|int $time = null): static;
+    }
+
+    interface CacheItemPoolInterface {
+        public function getItem(string $key): CacheItemInterface;
+        public function getItems(array $keys = []): iterable;
+        public function hasItem(string $key): bool;
+        public function clear(): bool;
+        public function deleteItem(string $key): bool;
+        public function deleteItems(array $keys): bool;
+        public function save(CacheItemInterface $item): bool;
+        public function saveDeferred(CacheItemInterface $item): bool;
+        public function commit(): bool;
+    }
+}
+
+// Guzzle HTTP Client
+namespace GuzzleHttp {
+    class Client {
+        public function __construct(array $config = []) {}
+        public function request(string $method, string $uri, array $options = []): mixed {}
+        public function get(string $uri, array $options = []): mixed {}
+        public function head(string $uri, array $options = []): mixed {}
+        public function put(string $uri, array $options = []): mixed {}
+        public function post(string $uri, array $options = []): mixed {}
+        public function patch(string $uri, array $options = []): mixed {}
+        public function delete(string $uri, array $options = []): mixed {}
+        public function requestAsync(string $method, string $uri, array $options = []): mixed {}
+        public function getAsync(string $uri, array $options = []): mixed {}
+        public function headAsync(string $uri, array $options = []): mixed {}
+        public function putAsync(string $uri, array $options = []): mixed {}
+        public function postAsync(string $uri, array $options = []): mixed {}
+        public function patchAsync(string $uri, array $options = []): mixed {}
+        public function deleteAsync(string $uri, array $options = []): mixed {}
+    }
+}
+
+// Carbon Date Library
+namespace Carbon {
+    class Carbon extends \DateTime {
+        public function __construct(string $time = null, \DateTimeZone $tz = null) {}
+        public static function now(\DateTimeZone $tz = null): static {}
+        public static function today(\DateTimeZone $tz = null): static {}
+        public static function tomorrow(\DateTimeZone $tz = null): static {}
+        public static function yesterday(\DateTimeZone $tz = null): static {}
+        public static function parse(string $time = null, \DateTimeZone $tz = null): static {}
+        public static function createFromFormat(string $format, string $time, \DateTimeZone $tz = null): static|false {}
+        public static function create(int $year = null, int $month = null, int $day = null, int $hour = null, int $minute = null, int $second = null, \DateTimeZone $tz = null): static {}
+        public function addYears(int $value): static {}
+        public function addYear(): static {}
+        public function subYears(int $value): static {}
+        public function subYear(): static {}
+        public function addMonths(int $value): static {}
+        public function addMonth(): static {}
+        public function subMonths(int $value): static {}
+        public function subMonth(): static {}
+        public function addDays(int $value): static {}
+        public function addDay(): static {}
+        public function subDays(int $value): static {}
+        public function subDay(): static {}
+        public function addHours(int $value): static {}
+        public function addHour(): static {}
+        public function subHours(int $value): static {}
+        public function subHour(): static {}
+        public function addMinutes(int $value): static {}
+        public function addMinute(): static {}
+        public function subMinutes(int $value): static {}
+        public function subMinute(): static {}
+        public function addSeconds(int $value): static {}
+        public function addSecond(): static {}
+        public function subSeconds(int $value): static {}
+        public function subSecond(): static {}
+        public function startOfDay(): static {}
+        public function endOfDay(): static {}
+        public function startOfMonth(): static {}
+        public function endOfMonth(): static {}
+        public function startOfYear(): static {}
+        public function endOfYear(): static {}
+        public function isToday(): bool {}
+        public function isTomorrow(): bool {}
+        public function isYesterday(): bool {}
+        public function isFuture(): bool {}
+        public function isPast(): bool {}
+        public function isWeekday(): bool {}
+        public function isWeekend(): bool {}
+        public function diffInYears(Carbon $dt = null, bool $abs = true): int {}
+        public function diffInMonths(Carbon $dt = null, bool $abs = true): int {}
+        public function diffInWeeks(Carbon $dt = null, bool $abs = true): int {}
+        public function diffInDays(Carbon $dt = null, bool $abs = true): int {}
+        public function diffInHours(Carbon $dt = null, bool $abs = true): int {}
+        public function diffInMinutes(Carbon $dt = null, bool $abs = true): int {}
+        public function diffInSeconds(Carbon $dt = null, bool $abs = true): int {}
+        public function diffForHumans(Carbon $other = null, bool $absolute = false): string {}
+        public function toDateString(): string {}
+        public function toTimeString(): string {}
+        public function toDateTimeString(): string {}
+        public function toISOString(): string {}
+        public function toJSON(): string {}
+    }
+}
+
+// Symfony Console
+namespace Symfony\Component\Console {
+    class Application {
+        public function __construct(string $name = 'UNKNOWN', string $version = 'UNKNOWN') {}
+        public function run(mixed $input = null, mixed $output = null): int {}
+        public function add(mixed $command): mixed {}
+        public function register(string $name): mixed {}
+        public function addCommands(array $commands): void {}
+        public function get(string $name): mixed {}
+        public function has(string $name): bool {}
+        public function getNamespaces(): array {}
+        public function findNamespace(string $namespace): string {}
+        public function find(string $name): mixed {}
+        public function all(string $namespace = null): array {}
+        public function setName(string $name): static {}
+        public function getName(): string {}
+        public function setVersion(string $version): static {}
+        public function getVersion(): string {}
+        public function getLongVersion(): string {}
+        public function setAutoExit(bool $boolean): void {}
+        public function setCatchExceptions(bool $boolean): void {}
+        public function setHelperSet(mixed $helperSet): void {}
+        public function getHelperSet(): mixed {}
+    }
+}
+
+namespace Symfony\Component\Console\Command {
+    abstract class Command {
+        public function __construct(string $name = null) {}
+        public function setApplication(mixed $application = null): void {}
+        public function setHelperSet(mixed $helperSet): void {}
+        public function getHelperSet(): mixed {}
+        public function getApplication(): mixed {}
+        public function isEnabled(): bool {}
+        public function configure(): void {}
+        protected function execute(mixed $input, mixed $output): int {}
+        protected function interact(mixed $input, mixed $output): void {}
+        protected function initialize(mixed $input, mixed $output): void {}
+        public function run(mixed $input, mixed $output): int {}
+        public function setCode(callable $code): static {}
+        public function mergeApplicationDefinition(bool $mergeArgs = true): void {}
+        public function setDefinition(array|mixed $definition): static {}
+        public function getDefinition(): mixed {}
+        public function getNativeDefinition(): mixed {}
+        public function addArgument(string $name, int $mode = null, string $description = '', mixed $default = null): static {}
+        public function addOption(string $name, string $shortcut = null, int $mode = null, string $description = '', mixed $default = null): static {}
+        public function setName(string $name): static {}
+        public function setProcessTitle(string $title): static {}
+        public function getName(): string {}
+        public function setHidden(bool $hidden = true): static {}
+        public function isHidden(): bool {}
+        public function setDescription(string $description): static {}
+        public function getDescription(): string {}
+        public function setHelp(string $help): static {}
+        public function getHelp(): string {}
+        public function getProcessedHelp(): string {}
+        public function setAliases(array $aliases): static {}
+        public function getAliases(): array {}
+        public function getSynopsis(bool $short = false): string {}
+        public function addUsage(string $usage): static {}
+        public function getUsages(): array {}
+        public function getHelper(string $name): mixed {}
+    }
+}
+
+// Redis
+class Redis {
+    public function connect(string $host, int $port = 6379, float $timeout = 0.0, string $reserved = null, int $retry_interval = 0, float $read_timeout = 0.0): bool {}
+    public function pconnect(string $host, int $port = 6379, float $timeout = 0.0, string $persistent_id = null, int $retry_interval = 0, float $read_timeout = 0.0): bool {}
+    public function close(): bool {}
+    public function select(int $dbindex): bool {}
+    public function auth(string $password): bool {}
+    public function ping(): string {}
+    public function echo(string $message): string {}
+    public function get(string $key): string|bool {}
+    public function set(string $key, mixed $value, mixed $timeout = null): bool {}
+    public function setex(string $key, int $ttl, mixed $value): bool {}
+    public function setnx(string $key, mixed $value): bool {}
+    public function del(...$keys): int {}
+    public function delete(...$keys): int {}
+    public function exists(string $key): int {}
+    public function incr(string $key): int {}
+    public function incrBy(string $key, int $value): int {}
+    public function decr(string $key): int {}
+    public function decrBy(string $key, int $value): int {}
+    public function type(string $key): int {}
+    public function append(string $key, string $value): int {}
+    public function getRange(string $key, int $start, int $end): string {}
+    public function setRange(string $key, int $offset, string $value): int {}
+    public function strlen(string $key): int {}
+    public function getBit(string $key, int $offset): int {}
+    public function setBit(string $key, int $offset, bool $value): int {}
+    public function bitCount(string $key, int $start = 0, int $end = -1): int {}
+    public function lPush(string $key, ...$values): int {}
+    public function rPush(string $key, ...$values): int {}
+    public function lPop(string $key): string|bool {}
+    public function rPop(string $key): string|bool {}
+    public function lLen(string $key): int {}
+    public function lIndex(string $key, int $index): string|bool {}
+    public function lSet(string $key, int $index, string $value): bool {}
+    public function lRange(string $key, int $start, int $end): array {}
+    public function lTrim(string $key, int $start, int $stop): bool {}
+    public function lRem(string $key, string $value, int $count): int {}
+    public function lInsert(string $key, int $position, string $pivot, string $value): int {}
+    public function sAdd(string $key, ...$values): int {}
+    public function sRem(string $key, ...$members): int {}
+    public function sMove(string $srcKey, string $dstKey, string $member): bool {}
+    public function sIsMember(string $key, string $value): bool {}
+    public function sCard(string $key): int {}
+    public function sPop(string $key): string|bool {}
+    public function sRandMember(string $key, int $count = null): string|array|bool {}
+    public function sInter(...$keys): array {}
+    public function sInterStore(string $dstKey, ...$keys): int {}
+    public function sUnion(...$keys): array {}
+    public function sUnionStore(string $dstKey, ...$keys): int {}
+    public function sDiff(...$keys): array {}
+    public function sDiffStore(string $dstKey, ...$keys): int {}
+    public function sMembers(string $key): array {}
+    public function hSet(string $key, string $hashKey, string $value): int {}
+    public function hGet(string $key, string $hashKey): string|bool {}
+    public function hLen(string $key): int {}
+    public function hDel(string $key, ...$hashKeys): int {}
+    public function hKeys(string $key): array {}
+    public function hVals(string $key): array {}
+    public function hGetAll(string $key): array {}
+    public function hExists(string $key, string $hashKey): bool {}
+    public function hIncrBy(string $key, string $hashKey, int $value): int {}
+    public function hMSet(string $key, array $hashKeys): bool {}
+    public function hMGet(string $key, array $hashKeys): array {}
+    public function zAdd(string $key, array $scoreValues): int {}
+    public function zRem(string $key, ...$members): int {}
+    public function zRange(string $key, int $start, int $end, bool $withscores = false): array {}
+    public function zReverseRange(string $key, int $start, int $end, bool $withscores = false): array {}
+    public function zRangeByScore(string $key, string $start, string $end, array $options = []): array {}
+    public function zReverseRangeByScore(string $key, string $start, string $end, array $options = []): array {}
+    public function zCount(string $key, string $start, string $end): int {}
+    public function zCard(string $key): int {}
+    public function zScore(string $key, string $member): float|bool {}
+    public function zRank(string $key, string $member): int|bool {}
+    public function zRevRank(string $key, string $member): int|bool {}
+    public function zIncrBy(string $key, float $value, string $member): float {}
+    public function zUnionStore(string $output, array $zsetKeys, array $weights = null, string $aggregateFunction = 'SUM'): int {}
+    public function zInterStore(string $output, array $zsetKeys, array $weights = null, string $aggregateFunction = 'SUM'): int {}
+    public function expire(string $key, int $ttl): bool {}
+    public function setTimeout(string $key, int $ttl): bool {}
+    public function expireAt(string $key, int $timestamp): bool {}
+    public function ttl(string $key): int {}
+    public function persist(string $key): bool {}
+    public function info(string $option = null): array|string {}
+    public function flushDB(): bool {}
+    public function flushAll(): bool {}
+    public function dbSize(): int {}
+    public function save(): bool {}
+    public function bgsave(): bool {}
+    public function lastSave(): int {}
+}
+
+// Common helper functions
+function env(string $key, mixed $default = null): mixed {
+    return $_ENV[$key] ?? $default;
+}
+
+function config(string $key = null, mixed $default = null): mixed {
+    return $default;
+}
+
+function cache(string $key = null, mixed $value = null): mixed {
+    return $value;
+}
+
+function logger(string $message = null, array $context = []): mixed {
+    return new stdClass();
+}
+
+function collect(mixed $value = null): mixed {
+    return new stdClass();
+}
+
+function dd(...$vars): void {
+    var_dump(...$vars);
+    exit(1);
+}
+
+function dump(...$vars): void {
+    var_dump(...$vars);
+}
+
+function now(string $tz = null): mixed {
+    return new DateTime();
+}
+
+function today(string $tz = null): mixed {
+    return new DateTime();
+}

@@ -1,0 +1,209 @@
+# PA-QA Python Development Dependencies
+# Code quality, testing, and development tools
+
+# Code formatting and linting
+ruff>=0.1.5                    # Fast Python linter (replaces flake8, isort, pyupgrade)
+black>=23.9.1                  # Code formatter
+isort>=5.12.0                  # Import sorting (backup for legacy projects)
+
+# Type checking
+mypy>=1.6.1                    # Static type checker
+types-requests>=2.31.0         # Type stubs for requests
+types-redis>=4.6.0             # Type stubs for redis  
+types-PyYAML>=6.0.0            # Type stubs for PyYAML
+types-python-dateutil>=2.8.0   # Type stubs for dateutil
+types-setuptools>=68.0.0       # Type stubs for setuptools
+types-toml>=0.10.0             # Type stubs for toml
+types-urllib3>=1.26.0          # Type stubs for urllib3
+
+# Testing framework and utilities
+pytest>=7.4.0                  # Testing framework
+pytest-cov>=4.1.0              # Coverage plugin
+pytest-mock>=3.11.0            # Mocking utilities
+pytest-asyncio>=0.21.0         # Async testing support
+pytest-xdist>=3.3.0            # Parallel test execution
+pytest-timeout>=2.1.0          # Test timeout handling
+pytest-randomly>=3.15.0        # Randomize test order
+pytest-benchmark>=4.0.0        # Performance benchmarking
+pytest-clarity>=1.0.1          # Better assertion output
+pytest-sugar>=0.9.7            # Beautiful test output
+
+# FastAPI testing dependencies
+pytest-httpx>=0.26.0           # HTTP client testing for FastAPI
+httpx>=0.25.0                  # Async HTTP client
+respx>=0.20.0                  # Mock HTTP responses
+
+# Django testing dependencies  
+django-stubs>=4.2.0            # Django type stubs
+djangorestframework-stubs>=3.14.0  # DRF type stubs
+factory-boy>=3.3.0             # Test data factories
+model-bakery>=1.17.0           # Django model factories
+django-extensions>=3.2.0       # Django development utilities
+django-debug-toolbar>=4.2.0    # Debug toolbar for development
+django-test-plus>=2.2.0        # Enhanced Django testing
+
+# Security and vulnerability scanning
+bandit>=1.7.5                  # Security linter
+safety>=2.3.0                  # Dependency vulnerability scanner
+semgrep>=1.45.0                # Static analysis security scanner
+
+# Code quality and pre-commit
+pre-commit>=3.5.0              # Pre-commit hooks framework
+pre-commit-hooks>=4.4.0        # Common pre-commit hooks
+
+# Documentation and docstring checking
+pydocstyle>=6.3.0              # Docstring style checker
+interrogate>=1.5.0             # Docstring coverage
+sphinx>=7.0.0                  # Documentation generator
+sphinx-autobuild>=2021.3.14    # Auto-rebuild docs
+myst-parser>=2.0.0             # Markdown parser for Sphinx
+
+# Database and migration tools
+alembic>=1.12.0                # Database migrations (SQLAlchemy)
+sqlalchemy-stubs>=0.4          # SQLAlchemy type stubs
+
+# Performance and profiling
+py-spy>=0.3.14                 # Python profiler
+memory-profiler>=0.61.0        # Memory usage profiling
+line-profiler>=4.1.0           # Line-by-line profiling
+locust>=2.17.0                 # Load testing framework
+
+# Development and debugging utilities
+ipython>=8.15.0                # Enhanced Python shell
+ipdb>=0.13.13                  # IPython debugger
+rich>=13.6.0                   # Rich text and beautiful formatting
+click>=8.1.0                   # Command line interface creation
+typer>=0.9.0                   # Modern CLI framework
+python-dotenv>=1.0.0           # Environment variable management
+
+# Code complexity and metrics
+radon>=6.0.1                   # Code complexity metrics
+xenon>=0.9.0                   # Code complexity monitoring
+cohesion>=1.0.0                # Class cohesion metrics
+
+# Git hooks and version control
+commitizen>=3.10.0             # Conventional commits
+gitpython>=3.1.0               # Git repository interaction
+
+# Data validation and serialization
+pydantic>=2.4.0                # Data validation
+marshmallow>=3.20.0            # Serialization/deserialization
+cerberus>=1.3.4                # Data validation
+
+# Configuration management
+dynaconf>=3.2.0                # Configuration management
+python-decouple>=3.8           # Environment configuration
+environs>=10.0.0               # Environment parsing
+
+# Async and concurrency utilities
+asyncio-throttle>=1.0.2        # Async rate limiting
+aiofiles>=23.2.0               # Async file operations
+aioredis>=2.0.0                # Async Redis client
+
+# Networking and HTTP utilities
+aiohttp>=3.8.0                 # Async HTTP client/server
+requests>=2.31.0               # HTTP library
+urllib3>=2.0.0                 # HTTP client
+
+# Date and time utilities
+arrow>=1.3.0                   # Better datetime handling
+pendulum>=2.1.0                # Timezone-aware datetime
+python-dateutil>=2.8.0         # Date parsing utilities
+
+# Data processing utilities
+attrs>=23.1.0                  # Classes without boilerplate
+cattrs>=23.1.0                 # Data structure conversion
+toolz>=0.12.0                  # Functional utilities
+
+# Logging and monitoring
+structlog>=23.2.0              # Structured logging
+loguru>=0.7.0                  # Simplified logging
+sentry-sdk>=1.35.0             # Error tracking
+
+# File format handling
+toml>=0.10.2                   # TOML file format
+PyYAML>=6.0.1                  # YAML file format
+orjson>=3.9.0                  # Fast JSON library
+
+# Development server utilities
+watchdog>=3.0.0                # File system event monitoring
+livereload>=2.6.3              # Auto-reload for development
+
+# Code generation and scaffolding
+cookiecutter>=2.4.0            # Project templating
+jinja2>=3.1.0                  # Template engine
+
+# Container and deployment utilities
+docker>=6.1.0                  # Docker Python API
+docker-compose>=1.29.0         # Docker Compose utilities
+
+# Linting and formatting integration
+flake8>=6.1.0                  # Legacy linter (for migration projects)
+pylint>=2.17.0                 # Comprehensive Python linter
+autopep8>=2.0.0                # PEP 8 formatter (backup)
+pycodestyle>=2.11.0            # PEP 8 style checker
+
+# Testing utilities for specific frameworks
+responses>=0.23.0              # Mock HTTP responses
+freezegun>=1.2.0               # Mock datetime
+faker>=19.0.0                  # Generate fake data
+mimesis>=11.1.0                # Fast fake data generation
+
+# Code coverage and reporting
+coverage[toml]>=7.3.0          # Code coverage measurement
+diff-cover>=8.0.0              # Coverage diff analysis
+
+# Performance monitoring
+psutil>=5.9.0                  # System and process utilities
+py-cpuinfo>=9.0.0              # CPU information
+
+# Development workflow tools
+tox>=4.11.0                    # Testing in multiple environments
+nox>=2023.4.22                 # Flexible test automation
+invoke>=2.2.0                  # Task execution framework
+
+# Jupyter and notebook development
+jupyter>=1.0.0                 # Jupyter notebook
+notebook>=7.0.0                # Jupyter notebook server
+jupyterlab>=4.0.0              # JupyterLab interface
+nbconvert>=7.0.0               # Notebook conversion
+
+# API development and testing
+tavern>=2.4.0                  # API testing framework
+schemathesis>=3.19.0           # Property-based API testing
+
+# Database utilities
+sqlparse>=0.4.4                # SQL parsing
+pgcli>=3.5.0                   # PostgreSQL CLI
+mycli>=1.27.0                  # MySQL CLI
+
+# String and text processing
+fuzzywuzzy>=0.18.0             # Fuzzy string matching
+python-levenshtein>=0.21.1     # Fast string similarity
+unidecode>=1.3.0               # ASCII transliteration
+
+# Serialization formats
+msgpack>=1.0.0                 # MessagePack serialization
+protobuf>=4.24.0               # Protocol Buffers
+
+# Authentication and security
+cryptography>=41.0.0           # Cryptographic primitives
+passlib>=1.7.4                 # Password hashing
+bcrypt>=4.0.0                  # Password hashing
+pyjwt>=2.8.0                   # JSON Web Tokens
+
+# Caching utilities
+cachetools>=5.3.0              # Caching utilities
+diskcache>=5.6.0               # Disk-based cache
+
+# Concurrency and parallelism
+concurrent-futures>=3.1.1      # Backport of concurrent.futures
+multiprocess>=0.70.15          # Better multiprocessing
+
+# Development automation
+bump2version>=1.0.1            # Version bumping
+twine>=4.0.0                   # PyPI package uploading
+
+# Code generation
+pydantic-to-typescript>=1.0.10 # Generate TypeScript from Pydantic
+datamodel-code-generator>=0.22.0 # Generate code from schemas

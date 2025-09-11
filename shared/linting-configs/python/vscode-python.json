@@ -1,0 +1,269 @@
+{
+  "// PA-QA Python VS Code Settings": "Configuration for optimal Python development",
+  "// Copy this content to your project's .vscode/settings.json": "",
+  
+  "// Python interpreter and environment": "",
+  "python.defaultInterpreterPath": "./venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+  "python.terminal.activateEnvInCurrentTerminal": true,
+  
+  "// Linting configuration": "",
+  "python.linting.enabled": true,
+  "python.linting.lintOnSave": true,
+  "python.linting.maxNumberOfProblems": 1000,
+  
+  "// Ruff configuration (primary linter)": "",
+  "python.linting.ruffEnabled": true,
+  "python.linting.ruffArgs": [
+    "--config=ruff.toml",
+    "--fix"
+  ],
+  
+  "// Legacy linter support (disabled in favor of Ruff)": "",
+  "python.linting.flake8Enabled": false,
+  "python.linting.pylintEnabled": false,
+  "python.linting.pycodestyleEnabled": false,
+  "python.linting.pydocstyleEnabled": false,
+  "python.linting.banditEnabled": false,
+  
+  "// MyPy type checking": "",
+  "python.linting.mypyEnabled": true,
+  "python.linting.mypyArgs": [
+    "--config-file=mypy.ini",
+    "--strict",
+    "--show-error-codes",
+    "--show-column-numbers"
+  ],
+  
+  "// Formatting configuration": "",
+  "python.formatting.provider": "black",
+  "python.formatting.blackArgs": [
+    "--line-length=88",
+    "--target-version=py39"
+  ],
+  
+  "// Sort imports configuration": "",
+  "python.sortImports.args": [
+    "--profile=black",
+    "--line-length=88"
+  ],
+  
+  "// Testing configuration": "",
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": [
+    "tests",
+    "--cov=src",
+    "--cov=app",
+    "--cov-report=html",
+    "--cov-report=xml",
+    "--tb=short"
+  ],
+  "python.testing.autoTestDiscoverOnSaveEnabled": true,
+  
+  "// Editor behavior": "",
+  "editor.formatOnSave": true,
+  "editor.formatOnType": false,
+  "editor.formatOnPaste": true,
+  "editor.codeActionsOnSave": {
+    "source.organizeImports": true,
+    "source.fixAll": true,
+    "source.fixAll.ruff": true
+  },
+  
+  "// File associations": "",
+  "files.associations": {
+    "*.py": "python",
+    "*.pyi": "python",
+    "*.pyx": "python",
+    "*.pxd": "python",
+    "pyproject.toml": "toml",
+    "pytest.ini": "ini",
+    "setup.cfg": "ini",
+    "tox.ini": "ini",
+    "mypy.ini": "ini",
+    "ruff.toml": "toml",
+    ".flake8": "ini",
+    ".coveragerc": "ini"
+  },
+  
+  "// Auto-completion and IntelliSense": "",
+  "python.analysis.typeCheckingMode": "strict",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.completeFunctionParens": true,
+  "python.analysis.autoFormatStrings": true,
+  "python.analysis.indexing": true,
+  
+  "// Pylance configuration": "",
+  "python.languageServer": "Pylance",
+  "python.analysis.extraPaths": [
+    "./src",
+    "./app",
+    "./tests"
+  ],
+  "python.analysis.stubPath": "./typings",
+  
+  "// Django specific settings": "",
+  "python.analysis.include": [
+    "./src/**",
+    "./app/**",
+    "./tests/**",
+    "./manage.py"
+  ],
+  "python.analysis.exclude": [
+    "**/node_modules",
+    "**/__pycache__",
+    ".git",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    "*.egg-info",
+    ".tox",
+    ".pytest_cache",
+    ".mypy_cache",
+    ".ruff_cache",
+    "migrations"
+  ],
+  
+  "// FastAPI specific settings": "",
+  "python.analysis.diagnosticMode": "workspace",
+  "python.analysis.useLibraryCodeForTypes": true,
+  
+  "// Debugging configuration": "",
+  "python.debugging.console": "integratedTerminal",
+  "python.debugging.justMyCode": false,
+  
+  "// File watching": "",
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/node_modules/**": true,
+    "**/__pycache__/**": true,
+    "**/.pytest_cache/**": true,
+    "**/.mypy_cache/**": true,
+    "**/.ruff_cache/**": true,
+    "**/htmlcov/**": true,
+    "**/dist/**": true,
+    "**/build/**": true,
+    "**/*.egg-info/**": true
+  },
+  
+  "// Git integration": "",
+  "git.ignoreLimitWarning": true,
+  
+  "// Terminal configuration": "",
+  "terminal.integrated.env.osx": {
+    "PYTHONPATH": "${workspaceFolder}/src:${workspaceFolder}/app"
+  },
+  "terminal.integrated.env.linux": {
+    "PYTHONPATH": "${workspaceFolder}/src:${workspaceFolder}/app"
+  },
+  "terminal.integrated.env.windows": {
+    "PYTHONPATH": "${workspaceFolder}/src;${workspaceFolder}/app"
+  },
+  
+  "// Editor rules for Python files": "",
+  "[python]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.detectIndentation": false,
+    "editor.rulers": [88],
+    "editor.wordWrap": "off",
+    "editor.trimAutoWhitespace": true,
+    "editor.formatOnSave": true,
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": true,
+      "source.fixAll": true
+    }
+  },
+  
+  "// Markdown files (for documentation)": "",
+  "[markdown]": {
+    "editor.wordWrap": "on",
+    "editor.rulers": [100],
+    "editor.formatOnSave": false
+  },
+  
+  "// TOML files (for configuration)": "",
+  "[toml]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true
+  },
+  
+  "// YAML files (for CI/CD and configs)": "",
+  "[yaml]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true
+  },
+  
+  "// JSON files": "",
+  "[json]": {
+    "editor.tabSize": 2,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": true
+  },
+  
+  "// INI files (for legacy configs)": "",
+  "[ini]": {
+    "editor.tabSize": 4,
+    "editor.insertSpaces": true,
+    "editor.formatOnSave": false
+  },
+  
+  "// Extensions recommendations": "",
+  "// Add these to .vscode/extensions.json": "",
+  "// ms-python.python": "Python extension",
+  "// ms-python.vscode-pylance": "Pylance language server",
+  "// charliermarsh.ruff": "Ruff linter and formatter",
+  "// ms-python.black-formatter": "Black formatter",
+  "// ms-python.isort": "Import sorting",
+  "// ms-python.mypy-type-checker": "MyPy type checker",
+  "// tamasfe.even-better-toml": "TOML language support",
+  "// redhat.vscode-yaml": "YAML language support",
+  "// ms-vscode.test-adapter-converter": "Test adapter",
+  "// littlefoxteam.vscode-python-test-adapter": "Python test adapter",
+  "// ms-python.debugpy": "Python debugger",
+  
+  "// Search and exclude patterns": "",
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/*.code-search": true,
+    "**/__pycache__": true,
+    "**/.pytest_cache": true,
+    "**/.mypy_cache": true,
+    "**/.ruff_cache": true,
+    "**/htmlcov": true,
+    "**/coverage.xml": true,
+    "**/dist": true,
+    "**/build": true,
+    "**/*.egg-info": true,
+    "**/.tox": true,
+    "**/.git": true
+  },
+  
+  "// Tasks configuration": "",
+  "// Add these to .vscode/tasks.json for quick commands": "",
+  "tasks.version": "2.0.0",
+  
+  "// Problem matchers": "",
+  "python.defaultInterpreterPath": "${workspaceFolder}/venv/bin/python",
+  
+  "// Notebook configuration": "",
+  "jupyter.askForKernelRestart": false,
+  "jupyter.interactiveWindow.textEditor.executeSelection": true,
+  
+  "// Documentation": "",
+  "// This configuration provides:": "",
+  "// - Ruff for fast linting and formatting": "",
+  "// - Black for code formatting": "",
+  "// - MyPy for type checking": "",
+  "// - Pytest for testing": "",
+  "// - Auto-formatting on save": "",
+  "// - Import organization": "",
+  "// - Comprehensive error detection": "",
+  "// - Optimal development experience": ""
+}

@@ -1,0 +1,159 @@
+{
+    "name": "pa-qa/wordpress-plugin-testing-template",
+    "description": "WordPress plugin testing template with PHPUnit 9.x and @wordpress/env integration",
+    "type": "wordpress-plugin",
+    "keywords": [
+        "wordpress",
+        "plugin",
+        "testing",
+        "phpunit",
+        "wp-env"
+    ],
+    "license": "GPL-2.0-or-later",
+    "authors": [
+        {
+            "name": "PA-QA Framework",
+            "email": "testing@projectassistant.ai",
+            "homepage": "https://projectassistant.ai"
+        }
+    ],
+    "require": {
+        "php": ">=7.4"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.6",
+        "yoast/phpunit-polyfills": "^2.0",
+        "brain/monkey": "^2.6",
+        "mockery/mockery": "^1.6",
+        "fakerphp/faker": "^1.23",
+        "phpstan/phpstan": "^1.10",
+        "squizlabs/php_codesniffer": "^3.7",
+        "wp-coding-standards/wpcs": "^3.0",
+        "dealerdirect/phpcodesniffer-composer-installer": "^1.0",
+        "phpcompatibility/phpcompatibility-wp": "*",
+        "roave/security-advisories": "dev-latest",
+        "allure-framework/allure-phpunit": "^2.3",
+        "phpmd/phpmd": "^2.14",
+        "sebastian/phpcpd": "^6.0",
+        "phploc/phploc": "^7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "PA_QA\\WordPress\\Plugin\\": "src/",
+            "PA_QA\\WordPress\\Testing\\": "tests/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "PA_QA\\WordPress\\Testing\\": "tests/"
+        },
+        "files": [
+            "tests/bootstrap.php"
+        ]
+    },
+    "scripts": {
+        "test": [
+            "@test:unit",
+            "@test:integration"
+        ],
+        "test:unit": "phpunit --testsuite=\"Unit Tests\" --colors=always",
+        "test:integration": "phpunit --testsuite=\"Integration Tests\" --colors=always",
+        "test:all": "phpunit --testsuite=\"All Tests\" --colors=always",
+        "test:coverage": "phpunit --coverage-html tests/coverage/html --coverage-clover tests/coverage/clover.xml",
+        "test:coverage-text": "phpunit --coverage-text",
+        "test:watch": "phpunit-watcher watch",
+        "test:multisite": "WP_TESTS_MULTISITE=1 phpunit",
+        "test:debug": "phpunit --debug",
+        "test:filter": "phpunit --filter",
+        "test:group": "phpunit --group",
+        "test:exclude-group": "phpunit --exclude-group",
+        "cs:check": "phpcs --standard=phpcs.xml",
+        "cs:fix": "phpcbf --standard=phpcs.xml",
+        "cs:check-all": [
+            "@cs:check",
+            "@stan:check",
+            "@md:check"
+        ],
+        "stan:check": "phpstan analyse --configuration=phpstan.neon",
+        "md:check": "phpmd src,tests text phpmd.xml",
+        "security:check": "composer audit",
+        "quality:check": [
+            "@cs:check-all",
+            "@test:coverage"
+        ],
+        "setup:wp-env": [
+            "npx @wordpress/env start",
+            "npx @wordpress/env run tests-cli wp core install --url=http://localhost:8889 --title='Test Site' --admin_user=admin --admin_password=password --admin_email=admin@example.com --skip-email",
+            "npx @wordpress/env run tests-cli wp plugin activate $(basename $(pwd))"
+        ],
+        "setup:test-db": [
+            "bash bin/install-wp-tests.sh wordpress_test root '' localhost latest"
+        ],
+        "setup:ci": [
+            "@setup:test-db",
+            "@install",
+            "@test:all"
+        ],
+        "docs:generate": "phpdoc -d src -t docs/api",
+        "allure:generate": "allure generate tests/allure-results --clean -o tests/allure-report",
+        "allure:serve": "allure serve tests/allure-results",
+        "metrics:loc": "phploc src tests --log-csv tests/metrics/loc.csv",
+        "metrics:cpd": "phpcpd src --log-pmd tests/metrics/cpd.xml",
+        "metrics:all": [
+            "@metrics:loc",
+            "@metrics:cpd"
+        ],
+        "pre-commit": [
+            "@cs:check",
+            "@stan:check",
+            "@test:unit"
+        ],
+        "pre-push": [
+            "@quality:check"
+        ]
+    },
+    "scripts-descriptions": {
+        "test": "Run all tests (unit and integration)",
+        "test:unit": "Run unit tests only",
+        "test:integration": "Run integration tests only",
+        "test:coverage": "Run tests with code coverage report",
+        "test:multisite": "Run tests in multisite mode",
+        "cs:check": "Check code style compliance",
+        "cs:fix": "Fix code style issues automatically",
+        "stan:check": "Run static analysis with PHPStan",
+        "setup:wp-env": "Set up WordPress environment using @wordpress/env",
+        "quality:check": "Run all quality checks (code style, static analysis, tests)"
+    },
+    "config": {
+        "allow-plugins": {
+            "dealerdirect/phpcodesniffer-composer-installer": true,
+            "composer/installers": true
+        },
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "platform": {
+            "php": "7.4"
+        }
+    },
+    "extra": {
+        "installer-name": "pa-qa-wordpress-plugin-template",
+        "installer-paths": {
+            "vendor/{$vendor}/{$name}/": ["type:wordpress-plugin"]
+        }
+    },
+    "suggest": {
+        "ext-xdebug": "For code coverage and debugging",
+        "ext-mysqli": "For database operations",
+        "ext-gd": "For image manipulation tests",
+        "ext-curl": "For HTTP request tests",
+        "ext-json": "For JSON data handling",
+        "ext-mbstring": "For multibyte string operations"
+    },
+    "support": {
+        "issues": "https://github.com/pa-qa/wordpress-plugin-testing/issues",
+        "docs": "https://docs.projectassistant.ai/testing/wordpress",
+        "source": "https://github.com/pa-qa/wordpress-plugin-testing"
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

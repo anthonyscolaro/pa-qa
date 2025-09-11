@@ -1,0 +1,181 @@
+# Pre-commit hooks configuration for PHP projects
+# PA-QA Framework - Ensures code quality before commits
+
+repos:
+  # PHP-specific hooks
+  - repo: local
+    hooks:
+      # PHP syntax check
+      - id: php-syntax-check
+        name: PHP Syntax Check
+        entry: php -l
+        language: system
+        files: \.php$
+        exclude: ^(vendor|node_modules|storage|bootstrap/cache|public)/
+        
+      # PHP-CS-Fixer
+      - id: php-cs-fixer
+        name: PHP-CS-Fixer
+        entry: composer cs:check
+        language: system
+        files: \.php$
+        exclude: ^(vendor|node_modules|storage|bootstrap/cache|public|database/migrations)/
+        pass_filenames: false
+        
+      # PHPStan static analysis
+      - id: phpstan
+        name: PHPStan Static Analysis
+        entry: composer stan
+        language: system
+        files: \.php$
+        exclude: ^(vendor|node_modules|storage|bootstrap/cache|public|database/migrations)/
+        pass_filenames: false
+        
+      # Psalm type checking
+      - id: psalm
+        name: Psalm Type Checking
+        entry: composer psalm
+        language: system
+        files: \.php$
+        exclude: ^(vendor|node_modules|storage|bootstrap/cache|public|database/migrations)/
+        pass_filenames: false
+        
+      # PHP Mess Detector
+      - id: phpmd
+        name: PHP Mess Detector
+        entry: composer md
+        language: system
+        files: \.php$
+        exclude: ^(vendor|node_modules|storage|bootstrap/cache|public|database/migrations)/
+        pass_filenames: false
+        
+      # PHPUnit tests
+      - id: phpunit
+        name: PHPUnit Tests
+        entry: composer test
+        language: system
+        files: \.php$
+        exclude: ^(vendor|node_modules|storage|bootstrap/cache|public)/
+        pass_filenames: false
+        
+      # Security audit
+      - id: composer-audit
+        name: Composer Security Audit
+        entry: composer audit
+        language: system
+        files: ^composer\.(json|lock)$
+        pass_filenames: false
+        
+      # Validate composer.json
+      - id: composer-validate
+        name: Validate composer.json
+        entry: composer validate --strict --no-check-all --no-check-publish
+        language: system
+        files: ^composer\.json$
+        pass_filenames: false
+        
+      # Check for magic numbers
+      - id: phpmnd
+        name: PHP Magic Number Detector
+        entry: composer mnd
+        language: system
+        files: \.php$
+        exclude: ^(vendor|node_modules|storage|bootstrap/cache|public|database|tests)/
+        pass_filenames: false
+        
+      # Copy-paste detection
+      - id: phpcpd
+        name: PHP Copy-Paste Detector
+        entry: composer cpd
+        language: system
+        files: \.php$
+        exclude: ^(vendor|node_modules|storage|bootstrap/cache|public|database|tests)/
+        pass_filenames: false
+
+  # Generic file checks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      # Basic file checks
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: check-json
+      - id: check-xml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-case-conflict
+      - id: check-symlinks
+      - id: destroyed-symlinks
+      
+      # Whitespace and formatting
+      - id: trailing-whitespace
+        exclude: \.min\.(js|css)$
+      - id: end-of-file-fixer
+        exclude: \.min\.(js|css)$
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-executables-have-shebangs
+      - id: check-shebang-scripts-are-executable
+      
+      # File size and content checks
+      - id: check-added-large-files
+        args: [--maxkb=1000]
+      - id: forbid-new-submodules
+      - id: no-commit-to-branch
+        args: [--branch, main, --branch, master, --branch, production]
+
+  # Additional security checks
+  - repo: https://github.com/Yelp/detect-secrets
+    rev: v1.4.0
+    hooks:
+      - id: detect-secrets
+        args: [--baseline, .secrets.baseline]
+        exclude: ^(vendor|node_modules|\.git)/
+
+  # Docker files
+  - repo: https://github.com/hadolint/hadolint
+    rev: v2.12.0
+    hooks:
+      - id: hadolint-docker
+        args: [--ignore, DL3008, --ignore, DL3009, --ignore, DL3015]
+
+  # Markdown and documentation
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.37.0
+    hooks:
+      - id: markdownlint
+        args: [--fix]
+        exclude: ^(vendor|node_modules)/
+
+  # Environment files
+  - repo: local
+    hooks:
+      - id: check-env-files
+        name: Check .env files for secrets
+        entry: bash -c 'for file in "$@"; do if grep -E "(password|secret|key|token).*=" "$file" | grep -v "^#"; then echo "Potential secret found in $file"; exit 1; fi; done' --
+        language: system
+        files: \.env.*$
+        exclude: \.env\.example$
+
+# Global configuration
+default_language_version:
+  php: php8.1
+
+# Fail fast - stop on first failure
+fail_fast: false
+
+# Minimum pre-commit version
+minimum_pre_commit_version: 3.0.0
+
+# CI configuration
+ci:
+  autofix_commit_msg: |
+    [pre-commit.ci] auto fixes from pre-commit hooks
+    
+    for more information, see https://pre-commit.ci
+  autofix_prs: true
+  autoupdate_branch: ''
+  autoupdate_commit_msg: '[pre-commit.ci] pre-commit autoupdate'
+  autoupdate_schedule: weekly
+  skip: []
+  submodules: false

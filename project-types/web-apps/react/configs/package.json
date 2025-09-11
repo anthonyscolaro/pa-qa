@@ -1,0 +1,111 @@
+{
+  "name": "react-vitest-template",
+  "version": "1.0.0",
+  "description": "React testing template with Vitest - PA-QA Framework",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:watch": "vitest --watch",
+    "test:related": "vitest related",
+    "test:reporter": "vitest run --reporter=verbose --reporter=json --outputFile=test-results/results.json",
+    "test:allure": "npm run test:reporter && allure generate test-results --clean -o allure-report",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.0",
+    "@tanstack/react-query": "^5.0.0",
+    "styled-components": "^6.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vitejs/plugin-react": "^4.2.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-react": "^7.33.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.0",
+    "eslint-plugin-jsx-a11y": "^6.8.0",
+    "typescript": "^5.3.0",
+    "vite": "^5.1.0",
+    
+    "vitest": "^1.4.0",
+    "@vitest/ui": "^1.4.0",
+    "@vitest/coverage-v8": "^1.4.0",
+    
+    "@testing-library/react": "^14.2.0",
+    "@testing-library/jest-dom": "^6.4.0",
+    "@testing-library/user-event": "^14.5.0",
+    
+    "jsdom": "^24.0.0",
+    "happy-dom": "^13.6.0",
+    
+    "msw": "^2.2.0",
+    
+    "allure-commandline": "^2.27.0",
+    "allure-vitest": "^2.8.0"
+  },
+  "peerDependencies": {
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  },
+  "browserslist": {
+    "production": [
+      ">0.2%",
+      "not dead",
+      "not op_mini all"
+    ],
+    "development": [
+      "last 1 chrome version",
+      "last 1 firefox version",
+      "last 1 safari version"
+    ]
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "vitest related --run"
+    ]
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "pre-push": "npm run test:run && npm run type-check"
+    }
+  },
+  "keywords": [
+    "react",
+    "vitest",
+    "testing",
+    "typescript",
+    "template",
+    "pa-qa"
+  ],
+  "author": "PA-QA Framework",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/project-assistant/pa-qa.git",
+    "directory": "project-types/web-apps/react"
+  },
+  "bugs": {
+    "url": "https://github.com/project-assistant/pa-qa/issues"
+  },
+  "homepage": "https://github.com/project-assistant/pa-qa#readme"
+}

@@ -1,0 +1,103 @@
+{
+  "core": "WordPress/WordPress#6.4",
+  "phpVersion": "8.1",
+  "plugins": [
+    "."
+  ],
+  "themes": [
+    "WordPress/twentytwentyfour"
+  ],
+  "port": 8888,
+  "testsPort": 8889,
+  "config": {
+    "WP_DEBUG": true,
+    "WP_DEBUG_LOG": true,
+    "WP_DEBUG_DISPLAY": false,
+    "SCRIPT_DEBUG": true,
+    "WP_ENVIRONMENT_TYPE": "local",
+    "WP_DEVELOPMENT_MODE": "plugin",
+    "CONCATENATE_SCRIPTS": false,
+    "COMPRESS_SCRIPTS": false,
+    "COMPRESS_CSS": false,
+    "WP_DISABLE_FATAL_ERROR_HANDLER": true,
+    "AUTOMATIC_UPDATER_DISABLED": true,
+    "WP_AUTO_UPDATE_CORE": false,
+    "DISALLOW_FILE_EDIT": true,
+    "DISALLOW_FILE_MODS": false
+  },
+  "mappings": {
+    "wp-content/mu-plugins/testing-helpers.php": "./tests/fixtures/mu-plugins/testing-helpers.php",
+    "wp-content/uploads": "./tests/fixtures/uploads"
+  },
+  "env": {
+    "tests": {
+      "core": "WordPress/WordPress#6.4",
+      "phpVersion": "8.1",
+      "config": {
+        "WP_DEBUG": true,
+        "WP_DEBUG_LOG": true,
+        "WP_DEBUG_DISPLAY": false,
+        "SCRIPT_DEBUG": true,
+        "WP_TESTS_DOMAIN": "example.org",
+        "WP_TESTS_EMAIL": "admin@example.org",
+        "WP_TESTS_TITLE": "Test Blog",
+        "WP_TESTS_MULTISITE": false,
+        "WP_ENVIRONMENT_TYPE": "test",
+        "WP_DEVELOPMENT_MODE": "plugin"
+      },
+      "port": 8889,
+      "plugins": [
+        "."
+      ],
+      "themes": [
+        "WordPress/twentytwentyfour"
+      ]
+    },
+    "multisite": {
+      "core": "WordPress/WordPress#6.4",
+      "phpVersion": "8.1",
+      "config": {
+        "WP_DEBUG": true,
+        "WP_DEBUG_LOG": true,
+        "WP_DEBUG_DISPLAY": false,
+        "SCRIPT_DEBUG": true,
+        "WP_TESTS_DOMAIN": "example.org",
+        "WP_TESTS_EMAIL": "admin@example.org",
+        "WP_TESTS_TITLE": "Multisite Test Blog",
+        "WP_TESTS_MULTISITE": true,
+        "MULTISITE": true,
+        "SUBDOMAIN_INSTALL": false,
+        "DOMAIN_CURRENT_SITE": "example.org",
+        "PATH_CURRENT_SITE": "/",
+        "SITE_ID_CURRENT_SITE": 1,
+        "BLOG_ID_CURRENT_SITE": 1,
+        "WP_ENVIRONMENT_TYPE": "test",
+        "WP_DEVELOPMENT_MODE": "plugin"
+      },
+      "port": 8890,
+      "plugins": [
+        "."
+      ],
+      "themes": [
+        "WordPress/twentytwentyfour"
+      ]
+    }
+  },
+  "lifecycleScripts": {
+    "afterStart": [
+      "npm run wp-env run cli wp core install --url=http://localhost:8888 --title='Plugin Development' --admin_user=admin --admin_password=password --admin_email=admin@example.com --skip-email",
+      "npm run wp-env run cli wp plugin activate $(basename $(pwd))",
+      "npm run wp-env run cli wp rewrite structure '/%postname%/'",
+      "npm run wp-env run cli wp rewrite flush",
+      "npm run wp-env run cli wp user create editor editor@example.com --role=editor --user_pass=password",
+      "npm run wp-env run cli wp user create author author@example.com --role=author --user_pass=password",
+      "npm run wp-env run cli wp user create subscriber subscriber@example.com --role=subscriber --user_pass=password"
+    ],
+    "afterClean": [
+      "rm -rf tests/results",
+      "rm -rf tests/coverage",
+      "rm -rf tests/allure-results",
+      "rm -rf tests/allure-report"
+    ]
+  }
+}

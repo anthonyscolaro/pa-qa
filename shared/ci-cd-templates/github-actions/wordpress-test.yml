@@ -1,0 +1,600 @@
+name: WordPress Testing Pipeline
+
+on:
+  push:
+    branches: [main, develop, 'feature/**']
+    paths:
+      - '**.php'
+      - 'tests/**'
+      - 'composer.json'
+      - 'composer.lock'
+      - 'phpunit.xml'
+      - '.wp-env.json'
+      - '.github/workflows/wordpress-test.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - '**.php'
+      - 'tests/**'
+      - 'composer.json'
+      - 'composer.lock'
+      - 'phpunit.xml'
+      - '.wp-env.json'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  WP_ENV_CORE: WordPress/WordPress
+  WP_ENV_PHP_VERSION: 8.1
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      tests: ${{ steps.changes.outputs.tests }}
+      php: ${{ steps.changes.outputs.php }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            tests:
+              - '**.php'
+              - 'tests/**'
+              - 'composer.json'
+              - 'composer.lock'
+              - 'phpunit.xml'
+            php:
+              - '**.php'
+
+  lint-and-security:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        php-version: ['7.4', '8.0', '8.1', '8.2', '8.3']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, mysql, mysqli, pdo_mysql, bcmath, soap, intl, gd, exif, iconv, imagick
+          coverage: xdebug
+          tools: composer, phpunit, phpcs, phpstan, psalm
+
+      - name: Validate composer.json and composer.lock
+        run: composer validate --strict
+
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ matrix.php-version }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-${{ matrix.php-version }}-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-dev --optimize-autoloader
+
+      - name: Install dev dependencies
+        run: composer install --prefer-dist --no-progress --optimize-autoloader
+
+      - name: Run PHP_CodeSniffer
+        run: |
+          ./vendor/bin/phpcs --standard=phpcs.xml \
+            --report=json \
+            --report-file=phpcs-report.json \
+            --extensions=php \
+            --ignore=vendor/,node_modules/ \
+            .
+        continue-on-error: true
+
+      - name: Run PHPStan
+        run: |
+          ./vendor/bin/phpstan analyse \
+            --configuration=phpstan.neon \
+            --error-format=json \
+            --no-progress \
+            --no-interaction \
+            --memory-limit=2G \
+            > phpstan-report.json
+        continue-on-error: true
+
+      - name: Run Psalm
+        run: |
+          ./vendor/bin/psalm \
+            --output-format=json \
+            --no-progress \
+            --shepherd \
+            > psalm-report.json
+        continue-on-error: true
+
+      - name: Run security check
+        run: |
+          composer audit --format=json > security-report.json
+        continue-on-error: true
+
+      - name: Upload lint results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lint-results-php-${{ matrix.php-version }}
+          path: |
+            phpcs-report.json
+            phpstan-report.json
+            psalm-report.json
+            security-report.json
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        php-version: ['7.4', '8.0', '8.1', '8.2', '8.3']
+        wp-version: ['6.0', '6.1', '6.2', '6.3', 'latest']
+        exclude:
+          # Exclude older WP versions with newer PHP versions for performance
+          - php-version: '8.3'
+            wp-version: '6.0'
+          - php-version: '8.3'
+            wp-version: '6.1'
+          - php-version: '8.2'
+            wp-version: '6.0'
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_ROOT_PASSWORD: ''
+          MYSQL_DATABASE: wordpress_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, mysql, mysqli, pdo_mysql, bcmath, soap, intl, gd, exif, iconv, imagick
+          coverage: xdebug
+          tools: composer, phpunit
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php-${{ matrix.php-version }}-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php-${{ matrix.php-version }}-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --optimize-autoloader
+
+      - name: Setup WordPress test environment
+        run: |
+          bash bin/install-wp-tests.sh wordpress_test root '' localhost:3306 ${{ matrix.wp-version }}
+        env:
+          WP_VERSION: ${{ matrix.wp-version }}
+
+      - name: Run PHPUnit tests
+        run: |
+          ./vendor/bin/phpunit \
+            --configuration phpunit.xml \
+            --coverage-clover coverage.xml \
+            --coverage-html coverage-html \
+            --log-junit test-results/junit-unit-php-${{ matrix.php-version }}-wp-${{ matrix.wp-version }}.xml \
+            --testdox-html test-results/testdox.html \
+            --colors=always \
+            tests/unit
+        env:
+          WP_TESTS_DB_NAME: wordpress_test
+          WP_TESTS_DB_USER: root
+          WP_TESTS_DB_PASSWORD: ''
+          WP_TESTS_DB_HOST: localhost:3306
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: unit-test-results-php-${{ matrix.php-version }}-wp-${{ matrix.wp-version }}
+          path: |
+            test-results/
+            coverage.xml
+            coverage-html/
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage.xml
+          flags: unit-tests,php-${{ matrix.php-version }},wp-${{ matrix.wp-version }}
+          name: unit-tests-php-${{ matrix.php-version }}-wp-${{ matrix.wp-version }}
+
+  integration-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        php-version: ['8.1', '8.2']
+        wp-version: ['latest']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_ROOT_PASSWORD: ''
+          MYSQL_DATABASE: wordpress_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, mysql, mysqli, pdo_mysql, bcmath, soap, intl, gd, exif, iconv, imagick
+          coverage: xdebug
+          tools: composer, phpunit
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --optimize-autoloader
+
+      - name: Setup WordPress test environment
+        run: |
+          bash bin/install-wp-tests.sh wordpress_test root '' localhost:3306 ${{ matrix.wp-version }}
+
+      - name: Run integration tests
+        run: |
+          ./vendor/bin/phpunit \
+            --configuration phpunit.xml \
+            --coverage-clover coverage-integration.xml \
+            --log-junit test-results/junit-integration-php-${{ matrix.php-version }}.xml \
+            --colors=always \
+            tests/integration
+        env:
+          WP_TESTS_DB_NAME: wordpress_test
+          WP_TESTS_DB_USER: root
+          WP_TESTS_DB_PASSWORD: ''
+          WP_TESTS_DB_HOST: localhost:3306
+
+      - name: Upload integration test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: integration-test-results-php-${{ matrix.php-version }}
+          path: |
+            test-results/
+            coverage-integration.xml
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          file: ./coverage-integration.xml
+          flags: integration-tests,php-${{ matrix.php-version }}
+          name: integration-tests-php-${{ matrix.php-version }}
+
+  e2e-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        wp-version: ['latest']
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install wp-env
+        run: npm install -g @wordpress/env
+
+      - name: Setup WordPress environment
+        run: |
+          wp-env start
+          wp-env run cli wp core install \
+            --url="http://localhost:8888" \
+            --title="Test Site" \
+            --admin_user="admin" \
+            --admin_password="password" \
+            --admin_email="admin@test.local" \
+            --skip-email
+
+      - name: Install and activate plugin/theme
+        run: |
+          wp-env run cli wp plugin activate $(basename $(pwd))
+          wp-env run cli wp theme activate twentytwentythree
+
+      - name: Install Playwright
+        run: |
+          npm install @playwright/test
+          npx playwright install --with-deps
+
+      - name: Run E2E tests
+        run: |
+          npx playwright test \
+            --config=tests/e2e/playwright.config.js \
+            --reporter=junit \
+            --output-dir=test-results/e2e
+        env:
+          WP_BASE_URL: http://localhost:8888
+          WP_ADMIN_USER: admin
+          WP_ADMIN_PASSWORD: password
+
+      - name: Upload E2E test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-test-results
+          path: |
+            test-results/
+            playwright-report/
+
+      - name: Stop WordPress environment
+        if: always()
+        run: wp-env stop
+
+  multisite-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.tests == 'true'
+    strategy:
+      matrix:
+        php-version: ['8.1']
+        wp-version: ['latest']
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: yes
+          MYSQL_ROOT_PASSWORD: ''
+          MYSQL_DATABASE: wordpress_multisite_test
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP ${{ matrix.php-version }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, mysql, mysqli, pdo_mysql, bcmath, soap, intl, gd, exif, iconv, imagick
+          coverage: xdebug
+          tools: composer, phpunit
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --optimize-autoloader
+
+      - name: Setup WordPress multisite test environment
+        run: |
+          bash bin/install-wp-tests.sh wordpress_multisite_test root '' localhost:3306 ${{ matrix.wp-version }} 1
+        env:
+          WP_VERSION: ${{ matrix.wp-version }}
+
+      - name: Run multisite tests
+        run: |
+          WP_MULTISITE=1 ./vendor/bin/phpunit \
+            --configuration phpunit-multisite.xml \
+            --log-junit test-results/junit-multisite.xml \
+            --colors=always \
+            tests/multisite
+        env:
+          WP_TESTS_DB_NAME: wordpress_multisite_test
+          WP_TESTS_DB_USER: root
+          WP_TESTS_DB_PASSWORD: ''
+          WP_TESTS_DB_HOST: localhost:3306
+          WP_MULTISITE: 1
+
+      - name: Upload multisite test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: multisite-test-results
+          path: test-results/
+
+  accessibility-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.php == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install wp-env and accessibility tools
+        run: |
+          npm install -g @wordpress/env
+          npm install axe-core pa11y
+
+      - name: Setup WordPress environment
+        run: |
+          wp-env start
+          wp-env run cli wp core install \
+            --url="http://localhost:8888" \
+            --title="Test Site" \
+            --admin_user="admin" \
+            --admin_password="password" \
+            --admin_email="admin@test.local" \
+            --skip-email
+
+      - name: Install and activate plugin/theme
+        run: |
+          wp-env run cli wp plugin activate $(basename $(pwd))
+
+      - name: Run accessibility tests
+        run: |
+          npx pa11y http://localhost:8888 \
+            --reporter json \
+            --output test-results/pa11y-report.json \
+            --standard WCAG2AA
+          
+          npx pa11y http://localhost:8888/wp-admin \
+            --reporter json \
+            --output test-results/pa11y-admin-report.json \
+            --standard WCAG2AA
+        continue-on-error: true
+
+      - name: Upload accessibility results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: accessibility-test-results
+          path: test-results/
+
+      - name: Stop WordPress environment
+        if: always()
+        run: wp-env stop
+
+  performance-tests:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.php == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install wp-env and performance tools
+        run: |
+          npm install -g @wordpress/env
+          npm install lighthouse
+
+      - name: Setup WordPress environment
+        run: |
+          wp-env start
+          wp-env run cli wp core install \
+            --url="http://localhost:8888" \
+            --title="Test Site" \
+            --admin_user="admin" \
+            --admin_password="password" \
+            --admin_email="admin@test.local" \
+            --skip-email
+
+      - name: Install and activate plugin/theme
+        run: |
+          wp-env run cli wp plugin activate $(basename $(pwd))
+          wp-env run cli wp rewrite structure '/%postname%/'
+
+      - name: Create test content
+        run: |
+          wp-env run cli wp post create \
+            --post_title="Performance Test Post" \
+            --post_content="This is a test post for performance testing." \
+            --post_status=publish
+
+      - name: Run Lighthouse performance audit
+        run: |
+          npx lighthouse http://localhost:8888 \
+            --output=json \
+            --output-path=test-results/lighthouse-home.json \
+            --preset=perf \
+            --chrome-flags="--headless --no-sandbox"
+
+      - name: Upload performance results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: performance-test-results
+          path: test-results/
+
+      - name: Stop WordPress environment
+        if: always()
+        run: wp-env stop
+
+  collect-results:
+    runs-on: ubuntu-latest
+    needs: [lint-and-security, unit-tests, integration-tests, e2e-tests, multisite-tests, accessibility-tests, performance-tests]
+    if: always()
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Merge test results
+        run: |
+          mkdir -p merged-results/allure-results
+          find artifacts -name "junit-*.xml" -exec cp {} merged-results/ \;
+          find artifacts -name "coverage*.xml" -exec cp {} merged-results/ \;
+          find artifacts -name "*-report.json" -exec cp {} merged-results/allure-results/ \;
+
+      - name: Generate Allure Report
+        uses: simple-elf/allure-report-action@master
+        if: always()
+        with:
+          allure_results: merged-results/allure-results
+          allure_report: allure-report
+          gh_pages: allure-results
+
+      - name: Upload merged results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pa-qa-wordpress-test-results
+          path: |
+            merged-results/
+            allure-report/
+          retention-days: 30
+
+      - name: Test Summary
+        uses: test-summary/action@v2
+        if: always()
+        with:
+          paths: "merged-results/junit-*.xml"
+
+  notify-status:
+    runs-on: ubuntu-latest
+    needs: [collect-results]
+    if: always() && github.ref == 'refs/heads/main'
+    steps:
+      - name: Notify Slack on failure
+        if: failure()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: failure
+          channel: '#qa-alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}
+          
+      - name: Notify Slack on success
+        if: success()
+        uses: 8398a7/action-slack@v3
+        with:
+          status: success
+          channel: '#qa-alerts'
+          webhook_url: ${{ secrets.SLACK_WEBHOOK }}

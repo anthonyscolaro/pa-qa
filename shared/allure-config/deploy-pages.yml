@@ -1,0 +1,507 @@
+# GitHub Pages Deployment Workflow for Allure Reports
+# 
+# This workflow automatically deploys Allure test reports to GitHub Pages
+# Supports multiple projects, history preservation, and trend analysis
+# 
+# Features:
+# - Automatic deployment on test completion
+# - Multi-project support with subdirectories
+# - History preservation across deployments
+# - Trend analysis and metrics
+# - Security-conscious with proper permissions
+# - Custom domain support
+
+name: Deploy Allure Reports to GitHub Pages
+
+on:
+  # Trigger on workflow completion from test workflows
+  workflow_run:
+    workflows: 
+      - "Test Suite"
+      - "CI/CD Pipeline"
+      - "Quality Assurance"
+    types:
+      - completed
+    branches:
+      - main
+      - develop
+  
+  # Manual trigger for specific deployments
+  workflow_dispatch:
+    inputs:
+      project_name:
+        description: 'Project name to deploy (leave empty for all)'
+        required: false
+        type: string
+      framework:
+        description: 'Test framework'
+        required: false
+        type: choice
+        options:
+          - 'all'
+          - 'jest'
+          - 'vitest'
+          - 'pytest'
+          - 'phpunit'
+      clean_history:
+        description: 'Clean previous history'
+        required: false
+        type: boolean
+        default: false
+
+  # Schedule for periodic cleanup and maintenance
+  schedule:
+    # Run daily at 2 AM UTC for maintenance
+    - cron: '0 2 * * *'
+
+# Set permissions for GitHub Pages deployment
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+  actions: read
+
+# Ensure only one deployment runs at a time
+concurrency:
+  group: "pages-deployment"
+  cancel-in-progress: false
+
+env:
+  # Allure configuration
+  ALLURE_VERSION: "2.24.0"
+  ALLURE_RESULTS_DIR: "allure-results"
+  ALLURE_REPORT_DIR: "allure-report"
+  ALLURE_HISTORY_DIR: "allure-history"
+  
+  # GitHub Pages configuration
+  PAGES_BASE_URL: "https://your-org.github.io/pa-qa"
+  CUSTOM_DOMAIN: "allure.projectassistant.ai"
+  
+  # Report configuration
+  MAX_HISTORY_BUILDS: 30
+  RETENTION_DAYS: 90
+
+jobs:
+  # Download and prepare test results
+  prepare-results:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    
+    outputs:
+      projects: ${{ steps.detect-projects.outputs.projects }}
+      has-results: ${{ steps.check-results.outputs.has-results }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install Allure CLI
+        run: |
+          curl -sL https://github.com/allure-framework/allure2/releases/download/${{ env.ALLURE_VERSION }}/allure-${{ env.ALLURE_VERSION }}.tgz | tar xz -C /tmp
+          sudo mv /tmp/allure-${{ env.ALLURE_VERSION }} /opt/allure
+          sudo ln -sf /opt/allure/bin/allure /usr/local/bin/allure
+          allure --version
+
+      - name: Download workflow artifacts
+        if: github.event_name == 'workflow_run'
+        uses: actions/download-artifact@v4
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: ./artifacts
+
+      - name: Extract and organize test results
+        id: extract-results
+        run: |
+          echo "Extracting test results from artifacts..."
+          
+          # Create results directory
+          mkdir -p combined-results
+          
+          if [[ -d "./artifacts" ]]; then
+            # Process downloaded artifacts
+            find ./artifacts -name "*.zip" -exec unzip -o {} -d combined-results/ \;
+            find ./artifacts -name "allure-results" -type d -exec cp -r {}/* combined-results/ \;
+          fi
+          
+          # Also check for local results (manual trigger)
+          if [[ -d "${{ env.ALLURE_RESULTS_DIR }}" ]]; then
+            cp -r ${{ env.ALLURE_RESULTS_DIR }}/* combined-results/ 2>/dev/null || true
+          fi
+          
+          # Count result files
+          result_count=$(find combined-results -name "*.json" -o -name "*.xml" | wc -l)
+          echo "Found $result_count result files"
+          echo "result-count=$result_count" >> $GITHUB_OUTPUT
+
+      - name: Detect projects
+        id: detect-projects
+        run: |
+          echo "Detecting projects from results..."
+          
+          # Extract project names from result files
+          projects=()
+          
+          if [[ -d "combined-results" ]]; then
+            # Look for environment.properties files to detect projects
+            while IFS= read -r -d '' file; do
+              if [[ -f "$file" ]]; then
+                project=$(grep "^Project=" "$file" 2>/dev/null | cut -d'=' -f2 || echo "unknown")
+                if [[ "$project" != "unknown" && ! " ${projects[*]} " =~ " ${project} " ]]; then
+                  projects+=("$project")
+                fi
+              fi
+            done < <(find combined-results -name "environment.properties" -print0)
+            
+            # If no projects detected, use default
+            if [[ ${#projects[@]} -eq 0 ]]; then
+              projects=("default")
+            fi
+          fi
+          
+          # Convert to JSON array
+          project_json=$(printf '%s\n' "${projects[@]}" | jq -R . | jq -s .)
+          echo "projects=$project_json" >> $GITHUB_OUTPUT
+          echo "Detected projects: ${projects[*]}"
+
+      - name: Check for results
+        id: check-results
+        run: |
+          result_count="${{ steps.extract-results.outputs.result-count }}"
+          if [[ "$result_count" -gt 0 ]]; then
+            echo "has-results=true" >> $GITHUB_OUTPUT
+          else
+            echo "has-results=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload prepared results
+        if: steps.check-results.outputs.has-results == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared-results
+          path: combined-results/
+          retention-days: 7
+
+  # Generate and deploy reports
+  deploy-reports:
+    runs-on: ubuntu-latest
+    needs: prepare-results
+    if: needs.prepare-results.outputs.has-results == 'true'
+    
+    strategy:
+      matrix:
+        project: ${{ fromJson(needs.prepare-results.outputs.projects) }}
+      fail-fast: false
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          # Install Allure CLI
+          curl -sL https://github.com/allure-framework/allure2/releases/download/${{ env.ALLURE_VERSION }}/allure-${{ env.ALLURE_VERSION }}.tgz | tar xz -C /tmp
+          sudo mv /tmp/allure-${{ env.ALLURE_VERSION }} /opt/allure
+          sudo ln -sf /opt/allure/bin/allure /usr/local/bin/allure
+          
+          # Install Python dependencies for trend analysis
+          pip install -r shared/allure-config/requirements.txt || echo "No requirements.txt found"
+
+      - name: Download prepared results
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared-results
+          path: ./results
+
+      - name: Download previous reports for history
+        continue-on-error: true
+        run: |
+          echo "Downloading previous reports for history preservation..."
+          
+          # Download from GitHub Pages
+          mkdir -p previous-reports
+          
+          # Try to download previous report history
+          curl -sL "${{ env.PAGES_BASE_URL }}/${{ matrix.project }}/history.zip" -o previous-reports/history.zip || true
+          
+          if [[ -f "previous-reports/history.zip" ]]; then
+            unzip -o previous-reports/history.zip -d ${{ env.ALLURE_HISTORY_DIR }}/ || true
+            echo "Previous history downloaded successfully"
+          else
+            echo "No previous history found"
+          fi
+
+      - name: Filter results for project
+        run: |
+          echo "Filtering results for project: ${{ matrix.project }}"
+          
+          mkdir -p project-results
+          
+          # Copy all results and filter by project metadata
+          if [[ "${{ matrix.project }}" == "default" ]]; then
+            # For default project, copy all results
+            cp -r results/* project-results/ 2>/dev/null || true
+          else
+            # Filter by project name in environment.properties
+            find results -name "environment.properties" -exec grep -l "Project=${{ matrix.project }}" {} \; | while read -r file; do
+              result_dir=$(dirname "$file")
+              cp -r "$result_dir"/* project-results/ 2>/dev/null || true
+            done
+          fi
+          
+          # Ensure we have some results
+          if [[ $(find project-results -name "*.json" -o -name "*.xml" | wc -l) -eq 0 ]]; then
+            echo "No results found for project ${{ matrix.project }}, using all results"
+            cp -r results/* project-results/ 2>/dev/null || true
+          fi
+
+      - name: Generate trends analysis
+        run: |
+          echo "Generating trends analysis for ${{ matrix.project }}..."
+          
+          if [[ -f "shared/allure-config/trend-analysis.py" ]]; then
+            python shared/allure-config/trend-analysis.py \
+              --results project-results \
+              --history ${{ env.ALLURE_HISTORY_DIR }} \
+              --output trends \
+              --project "${{ matrix.project }}" \
+              --framework "auto" \
+              --format json,html || echo "Trend analysis failed"
+          fi
+
+      - name: Generate Allure report
+        run: |
+          echo "Generating Allure report for ${{ matrix.project }}..."
+          
+          # Copy history to results for report generation
+          if [[ -d "${{ env.ALLURE_HISTORY_DIR }}" ]]; then
+            mkdir -p project-results/history
+            cp -r ${{ env.ALLURE_HISTORY_DIR }}/* project-results/history/ 2>/dev/null || true
+          fi
+          
+          # Generate report
+          allure generate project-results \
+            --output ${{ env.ALLURE_REPORT_DIR }} \
+            --clean
+          
+          # Copy trends to report if available
+          if [[ -d "trends" ]]; then
+            cp -r trends ${{ env.ALLURE_REPORT_DIR }}/
+          fi
+
+      - name: Preserve history
+        run: |
+          echo "Preserving history for future builds..."
+          
+          # Create history archive
+          if [[ -d "${{ env.ALLURE_REPORT_DIR }}/history" ]]; then
+            mkdir -p archive
+            cp -r ${{ env.ALLURE_REPORT_DIR }}/history archive/
+            
+            # Limit history to last N builds
+            if [[ -d "archive/history" ]]; then
+              find archive/history -name "history.json" -exec python -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        data = json.load(f)
+    # Keep only last ${{ env.MAX_HISTORY_BUILDS }} builds
+    if len(data) > ${{ env.MAX_HISTORY_BUILDS }}:
+        data = data[-${{ env.MAX_HISTORY_BUILDS }}:]
+    with open(sys.argv[1], 'w') as f:
+        json.dump(data, f)
+except:
+    pass
+              " {} \;
+            fi
+            
+            # Create history archive
+            cd archive && zip -r ../history.zip . && cd ..
+            cp history.zip ${{ env.ALLURE_REPORT_DIR }}/
+          fi
+
+      - name: Create project index
+        run: |
+          echo "Creating project index for ${{ matrix.project }}..."
+          
+          # Create project-specific directory structure
+          mkdir -p pages-output/${{ matrix.project }}
+          cp -r ${{ env.ALLURE_REPORT_DIR }}/* pages-output/${{ matrix.project }}/
+          
+          # Create or update main index if this is the first/default project
+          if [[ "${{ matrix.project }}" == "default" ]] || [[ ! -f "pages-output/index.html" ]]; then
+            cat > pages-output/index.html << EOF
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PA-QA Test Reports Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; text-align: center; margin-bottom: 30px; }
+        .projects { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .project { border: 1px solid #ddd; border-radius: 8px; padding: 20px; background: #fafafa; transition: transform 0.2s; }
+        .project:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .project h3 { margin: 0 0 10px 0; color: #2c5aa0; }
+        .project p { margin: 5px 0; color: #666; }
+        .project a { display: inline-block; margin-top: 15px; padding: 8px 16px; background: #2c5aa0; color: white; text-decoration: none; border-radius: 4px; }
+        .project a:hover { background: #1e3d6f; }
+        .footer { text-align: center; margin-top: 30px; color: #888; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>PA-QA Test Reports Dashboard</h1>
+        <div class="projects" id="projects">
+            <!-- Projects will be loaded here -->
+        </div>
+        <div class="footer">
+            <p>Generated on $(date -u +"%Y-%m-%d %H:%M:%S UTC") | Powered by <a href="https://github.com/allure-framework/allure2">Allure Framework</a></p>
+        </div>
+    </div>
+    
+    <script>
+        // Auto-discover projects
+        const projects = [
+          {
+            name: "${{ matrix.project }}",
+            path: "${{ matrix.project }}/",
+            lastUpdate: "$(date -u +"%Y-%m-%d %H:%M:%S UTC")",
+            framework: "Auto-detected"
+          }
+        ];
+        
+        const projectsContainer = document.getElementById('projects');
+        projects.forEach(project => {
+          const projectDiv = document.createElement('div');
+          projectDiv.className = 'project';
+          projectDiv.innerHTML = \`
+            <h3>\${project.name}</h3>
+            <p><strong>Framework:</strong> \${project.framework}</p>
+            <p><strong>Last Update:</strong> \${project.lastUpdate}</p>
+            <a href="\${project.path}index.html">View Report</a>
+          \`;
+          projectsContainer.appendChild(projectDiv);
+        });
+    </script>
+</body>
+</html>
+EOF
+          fi
+
+      - name: Setup custom domain
+        if: env.CUSTOM_DOMAIN != ''
+        run: |
+          echo "${{ env.CUSTOM_DOMAIN }}" > pages-output/CNAME
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages-output/
+
+  # Final deployment step
+  deploy-to-pages:
+    runs-on: ubuntu-latest
+    needs: [prepare-results, deploy-reports]
+    if: needs.prepare-results.outputs.has-results == 'true'
+    
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Send notification
+        if: always()
+        run: |
+          echo "Sending deployment notification..."
+          
+          # Create notification payload
+          status="${{ job.status }}"
+          report_url="${{ steps.deployment.outputs.page_url }}"
+          
+          # Call notification script if available
+          if [[ -f "shared/allure-config/notifications.js" ]] && command -v node >/dev/null 2>&1; then
+            node shared/allure-config/notifications.js \
+              --type "deployment" \
+              --status "$status" \
+              --report-url "$report_url" \
+              --projects '${{ needs.prepare-results.outputs.projects }}' \
+              --commit "${{ github.sha }}" \
+              --branch "${{ github.ref_name }}"
+          fi
+
+  # Cleanup old reports
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: [deploy-to-pages]
+    if: github.event_name == 'schedule'
+    
+    steps:
+      - name: Cleanup old artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: artifacts } = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - ${{ env.RETENTION_DAYS }});
+            
+            for (const artifact of artifacts.artifacts) {
+              const createdDate = new Date(artifact.created_at);
+              if (createdDate < cutoffDate && artifact.name.includes('allure')) {
+                console.log(`Deleting old artifact: ${artifact.name} (${artifact.created_at})`);
+                await github.rest.actions.deleteArtifact({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  artifact_id: artifact.id
+                });
+              }
+            }
+
+      - name: Log cleanup completion
+        run: |
+          echo "Cleanup completed at $(date -u +"%Y-%m-%d %H:%M:%S UTC")"

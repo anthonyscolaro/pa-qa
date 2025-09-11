@@ -1,0 +1,665 @@
+# Kubernetes configuration for PA-QA scale testing
+# Supports parallel test execution with auto-scaling and resource management
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pa-qa-testing
+  labels:
+    name: pa-qa-testing
+    purpose: testing
+---
+# ConfigMap for test environment variables
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-config
+  namespace: pa-qa-testing
+data:
+  NODE_ENV: "test"
+  PYTHONPATH: "/app"
+  WP_ENV: "test"
+  CI: "true"
+  ALLURE_RESULTS_DIR: "/app/allure-results"
+  DATABASE_URL: "postgresql://test_user:test_pass@postgres:5432/test_db"
+  REDIS_URL: "redis://redis:6379/0"
+  WP_DB_HOST: "mysql"
+  WP_DB_NAME: "wordpress_test"
+  WP_DB_USER: "test_user"
+  CHROME_BIN: "/usr/bin/chromium-browser"
+  PLAYWRIGHT_BROWSERS_PATH: "/app/browsers"
+---
+# Secret for database credentials
+apiVersion: v1
+kind: Secret
+metadata:
+  name: test-secrets
+  namespace: pa-qa-testing
+type: Opaque
+data:
+  postgres-password: dGVzdF9wYXNz  # test_pass
+  mysql-password: dGVzdF9wYXNz     # test_pass
+  redis-password: ""               # no password
+---
+# Persistent Volume for test results
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: test-results-pv
+  namespace: pa-qa-testing
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: test-results
+  hostPath:
+    path: /mnt/test-results
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: test-results-pvc
+  namespace: pa-qa-testing
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 10Gi
+  storageClassName: test-results
+---
+# Service for PostgreSQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: pa-qa-testing
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  type: ClusterIP
+---
+# PostgreSQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: pa-qa-testing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "test_db"
+        - name: POSTGRES_USER
+          value: "test_user"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: test-secrets
+              key: postgres-password
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - test_user
+            - -d
+            - test_db
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - test_user
+            - -d
+            - test_db
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Service for MySQL
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: pa-qa-testing
+spec:
+  selector:
+    app: mysql
+  ports:
+    - port: 3306
+      targetPort: 3306
+  type: ClusterIP
+---
+# MySQL Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mysql
+  namespace: pa-qa-testing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+      - name: mysql
+        image: mysql:8.0
+        ports:
+        - containerPort: 3306
+        env:
+        - name: MYSQL_DATABASE
+          value: "wordpress_test"
+        - name: MYSQL_USER
+          value: "test_user"
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: test-secrets
+              key: mysql-password
+        - name: MYSQL_ROOT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: test-secrets
+              key: mysql-password
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - mysqladmin
+            - ping
+            - -h
+            - localhost
+            - -u
+            - root
+            - -ptest_pass
+          initialDelaySeconds: 60
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - mysqladmin
+            - ping
+            - -h
+            - localhost
+            - -u
+            - root
+            - -ptest_pass
+          initialDelaySeconds: 30
+          periodSeconds: 5
+---
+# Service for Redis
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: pa-qa-testing
+spec:
+  selector:
+    app: redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
+---
+# Redis Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: pa-qa-testing
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        ports:
+        - containerPort: 6379
+        command:
+        - redis-server
+        - --appendonly
+        - "yes"
+        - --maxmemory
+        - "256mb"
+        - --maxmemory-policy
+        - "allkeys-lru"
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        livenessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 10
+          periodSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - redis-cli
+            - ping
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+# Node.js Test Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: node-tests
+  namespace: pa-qa-testing
+spec:
+  parallelism: 3
+  completions: 3
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: node-tests
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: node-test-runner
+        image: pa-qa/node-test:latest
+        imagePullPolicy: IfNotPresent
+        command: ["npm", "run", "test:ci"]
+        envFrom:
+        - configMapRef:
+            name: test-config
+        env:
+        - name: TEST_SHARD
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.annotations['batch.kubernetes.io/job-completion-index']
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: test-results
+          mountPath: /app/test-results
+        - name: coverage-reports
+          mountPath: /app/coverage
+        - name: allure-results
+          mountPath: /app/allure-results
+        - name: shm
+          mountPath: /dev/shm
+      volumes:
+      - name: test-results
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: coverage-reports
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: allure-results
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+---
+# Python Test Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: python-tests
+  namespace: pa-qa-testing
+spec:
+  parallelism: 2
+  completions: 2
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: python-tests
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: python-test-runner
+        image: pa-qa/python-test:latest
+        imagePullPolicy: IfNotPresent
+        command: ["pytest", "tests/", "-v", "--junit-xml=/app/test-results/pytest.xml"]
+        envFrom:
+        - configMapRef:
+            name: test-config
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: test-results
+          mountPath: /app/test-results
+        - name: coverage-reports
+          mountPath: /app/coverage
+        - name: allure-results
+          mountPath: /app/allure-results
+      volumes:
+      - name: test-results
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: coverage-reports
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: allure-results
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+---
+# PHP Test Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: php-tests
+  namespace: pa-qa-testing
+spec:
+  parallelism: 2
+  completions: 2
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: php-tests
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: php-test-runner
+        image: pa-qa/php-test:latest
+        imagePullPolicy: IfNotPresent
+        command: ["vendor/bin/phpunit", "--configuration=phpunit.xml", "--log-junit=/var/www/html/test-results/phpunit.xml"]
+        envFrom:
+        - configMapRef:
+            name: test-config
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        volumeMounts:
+        - name: test-results
+          mountPath: /var/www/html/test-results
+        - name: coverage-reports
+          mountPath: /var/www/html/coverage
+        - name: allure-results
+          mountPath: /var/www/html/allure-results
+      volumes:
+      - name: test-results
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: coverage-reports
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: allure-results
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+---
+# E2E Test Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: e2e-tests
+  namespace: pa-qa-testing
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: e2e-tests
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: e2e-test-runner
+        image: pa-qa/node-test:latest
+        imagePullPolicy: IfNotPresent
+        command: ["npm", "run", "test:e2e:ci"]
+        envFrom:
+        - configMapRef:
+            name: test-config
+        env:
+        - name: BASE_URL
+          value: "http://app:3000"
+        - name: API_URL
+          value: "http://api:8000"
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: test-results
+          mountPath: /app/test-results
+        - name: screenshots
+          mountPath: /app/screenshots
+        - name: videos
+          mountPath: /app/videos
+        - name: shm
+          mountPath: /dev/shm
+      volumes:
+      - name: test-results
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: screenshots
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: videos
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: shm
+        emptyDir:
+          medium: Memory
+          sizeLimit: 2Gi
+---
+# Performance Test Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: performance-tests
+  namespace: pa-qa-testing
+spec:
+  parallelism: 1
+  completions: 1
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: performance-tests
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: performance-test-runner
+        image: pa-qa/node-test:latest
+        imagePullPolicy: IfNotPresent
+        command: ["npm", "run", "test:performance"]
+        envFrom:
+        - configMapRef:
+            name: test-config
+        env:
+        - name: TARGET_URL
+          value: "http://app:3000"
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        volumeMounts:
+        - name: test-results
+          mountPath: /app/test-results
+        - name: performance-reports
+          mountPath: /app/performance-reports
+      volumes:
+      - name: test-results
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+      - name: performance-reports
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+---
+# Load Test Job
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: load-tests
+  namespace: pa-qa-testing
+spec:
+  parallelism: 5
+  completions: 5
+  backoffLimit: 2
+  template:
+    metadata:
+      labels:
+        app: load-tests
+    spec:
+      restartPolicy: Never
+      containers:
+      - name: load-test-runner
+        image: pa-qa/python-test:latest
+        imagePullPolicy: IfNotPresent
+        command: ["locust", "--host=http://app:3000", "--headless", "--users=100", "--spawn-rate=10", "--run-time=5m", "--html=/app/test-results/locust-report.html"]
+        envFrom:
+        - configMapRef:
+            name: test-config
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        volumeMounts:
+        - name: test-results
+          mountPath: /app/test-results
+      volumes:
+      - name: test-results
+        persistentVolumeClaim:
+          claimName: test-results-pvc
+---
+# HorizontalPodAutoscaler for load tests
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: load-test-hpa
+  namespace: pa-qa-testing
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: load-tests
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+---
+# Network Policy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: test-network-policy
+  namespace: pa-qa-testing
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: pa-qa-testing
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: pa-qa-testing
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 53
+    - protocol: UDP
+      port: 53
+---
+# Resource Quota for the namespace
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: test-resource-quota
+  namespace: pa-qa-testing
+spec:
+  hard:
+    requests.cpu: "5"
+    requests.memory: 10Gi
+    limits.cpu: "10"
+    limits.memory: 20Gi
+    pods: "20"
+    services: "10"
+    persistentvolumeclaims: "5"

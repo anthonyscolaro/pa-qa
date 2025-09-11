@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/9.6/phpunit.xsd"
+    bootstrap="tests/bootstrap.php"
+    backupGlobals="false"
+    backupStaticAttributes="false"
+    colors="true"
+    convertErrorsToExceptions="true"
+    convertNoticesToExceptions="true"
+    convertWarningsToExceptions="true"
+    processIsolation="false"
+    stopOnFailure="false"
+    stopOnError="false"
+    stopOnIncomplete="false"
+    stopOnSkipped="false"
+    verbose="true"
+    beStrictAboutTestsThatDoNotTestAnything="true"
+    beStrictAboutOutputDuringTests="true"
+    beStrictAboutTodoAnnotatedTests="true"
+    beStrictAboutResourceUsageDuringSmallTests="true"
+    enforceTimeLimit="true"
+    defaultTimeLimit="10"
+    timeoutForSmallTests="5"
+    timeoutForMediumTests="10"
+    timeoutForLargeTests="60"
+    executionOrder="depends,defects"
+    resolutionOrder="defects"
+    cacheResult="true"
+    cacheResultFile=".phpunit.result.cache">
+
+    <!-- Test Suites Configuration -->
+    <testsuites>
+        <testsuite name="Unit Tests">
+            <directory>tests/unit</directory>
+        </testsuite>
+        <testsuite name="Integration Tests">
+            <directory>tests/integration</directory>
+        </testsuite>
+        <testsuite name="All Tests">
+            <directory>tests/unit</directory>
+            <directory>tests/integration</directory>
+        </testsuite>
+    </testsuites>
+
+    <!-- Code Coverage Configuration -->
+    <coverage processUncoveredFiles="true">
+        <include>
+            <directory suffix=".php">./</directory>
+        </include>
+        <exclude>
+            <directory>./tests</directory>
+            <directory>./vendor</directory>
+            <directory>./node_modules</directory>
+            <directory>./build</directory>
+            <directory>./dist</directory>
+            <file>./plugin.php</file>
+            <file>./uninstall.php</file>
+        </exclude>
+        <report>
+            <html outputDirectory="tests/coverage/html"/>
+            <clover outputFile="tests/coverage/clover.xml"/>
+            <xml outputDirectory="tests/coverage/xml"/>
+            <text outputFile="tests/coverage/coverage.txt"/>
+        </report>
+    </coverage>
+
+    <!-- Logging Configuration -->
+    <logging>
+        <junit outputFile="tests/results/junit.xml"/>
+        <teamcity outputFile="tests/results/teamcity.txt"/>
+        <testdoxHtml outputFile="tests/results/testdox.html"/>
+        <testdoxText outputFile="tests/results/testdox.txt"/>
+    </logging>
+
+    <!-- PHP Configuration -->
+    <php>
+        <!-- WordPress Test Environment Variables -->
+        <const name="WP_TESTS_DOMAIN" value="example.org"/>
+        <const name="WP_TESTS_EMAIL" value="admin@example.org"/>
+        <const name="WP_TESTS_TITLE" value="Test Blog"/>
+        <const name="WP_PHP_BINARY" value="php"/>
+        <const name="WP_TESTS_MULTISITE" value="false"/>
+        
+        <!-- Database Configuration -->
+        <env name="WP_TESTS_DB_NAME" value="wordpress_test"/>
+        <env name="WP_TESTS_DB_USER" value="root"/>
+        <env name="WP_TESTS_DB_PASSWORD" value=""/>
+        <env name="WP_TESTS_DB_HOST" value="localhost"/>
+        <env name="WP_TESTS_TABLE_PREFIX" value="wptests_"/>
+        
+        <!-- WordPress Installation Path -->
+        <env name="WP_TESTS_DIR" value="/tmp/wordpress-tests-lib"/>
+        <env name="WP_CORE_DIR" value="/tmp/wordpress/"/>
+        
+        <!-- Plugin Configuration -->
+        <env name="WP_TESTS_FORCE_KNOWN_BUGS" value="false"/>
+        <env name="WP_TESTS_SKIP_INSTALL" value="false"/>
+        
+        <!-- Debug Configuration -->
+        <const name="WP_DEBUG" value="true"/>
+        <const name="WP_DEBUG_LOG" value="true"/>
+        <const name="WP_DEBUG_DISPLAY" value="false"/>
+        <const name="SCRIPT_DEBUG" value="true"/>
+        
+        <!-- Memory and Time Limits -->
+        <ini name="memory_limit" value="512M"/>
+        <ini name="max_execution_time" value="300"/>
+        
+        <!-- Error Reporting -->
+        <ini name="error_reporting" value="E_ALL"/>
+        <ini name="display_errors" value="On"/>
+        <ini name="display_startup_errors" value="On"/>
+        
+        <!-- Date/Time Configuration -->
+        <ini name="date.timezone" value="UTC"/>
+        
+        <!-- Allure Configuration for Reporting -->
+        <env name="ALLURE_RESULTS_DIR" value="tests/allure-results"/>
+        <env name="ALLURE_PROJECT_NAME" value="WordPress Plugin Tests"/>
+        
+        <!-- Custom Test Configuration -->
+        <env name="TEST_PLUGIN_SLUG" value="test-plugin"/>
+        <env name="TEST_PLUGIN_VERSION" value="1.0.0"/>
+    </php>
+
+    <!-- Extensions Configuration -->
+    <extensions>
+        <!-- Allure PHPUnit Extension -->
+        <!--
+        <extension class="Qameta\Allure\PHPUnit\AllureExtension">
+            <arguments>
+                <string>tests/allure-results</string>
+                <boolean>true</boolean>
+                <array>
+                    <element key="deletePreviousResults">
+                        <boolean>false</boolean>
+                    </element>
+                </array>
+            </arguments>
+        </extension>
+        -->
+    </extensions>
+
+    <!-- Groups Configuration -->
+    <groups>
+        <exclude>
+            <group>slow</group>
+            <group>network</group>
+            <group>external</group>
+        </exclude>
+    </groups>
+
+    <!-- Listeners Configuration -->
+    <listeners>
+        <!-- Custom Test Listener -->
+        <!--
+        <listener class="PA_QA\WordPress\Testing\Listeners\TestProgressListener"/>
+        -->
+    </listeners>
+</phpunit>
