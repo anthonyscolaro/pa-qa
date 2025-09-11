@@ -1,0 +1,83 @@
+{
+  "summary": {
+    "total_pages_tested": 1,
+    "total_issues": 12,
+    "total_screenshots": 0,
+    "test_completed": "2025-09-11T05:36:44.489Z"
+  },
+  "homepage": {},
+  "pages": {},
+  "issues": [
+    {
+      "type": "homepage_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/\", waiting until \"networkidle\"\u001b[22m\n",
+      "url": "http://localhost:3005"
+    },
+    {
+      "type": "page_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/getting-started\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/getting-started\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "Getting Started",
+      "url": "http://localhost:3005/getting-started"
+    },
+    {
+      "type": "page_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/testing-patterns\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/testing-patterns\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "Testing Patterns",
+      "url": "http://localhost:3005/testing-patterns"
+    },
+    {
+      "type": "page_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/utilities\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/utilities\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "Utilities",
+      "url": "http://localhost:3005/utilities"
+    },
+    {
+      "type": "page_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/best-practices\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/best-practices\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "Best Practices",
+      "url": "http://localhost:3005/best-practices"
+    },
+    {
+      "type": "page_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/ci-cd\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/ci-cd\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "CI/CD",
+      "url": "http://localhost:3005/ci-cd"
+    },
+    {
+      "type": "page_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/examples\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/examples\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "Examples",
+      "url": "http://localhost:3005/examples"
+    },
+    {
+      "type": "page_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/showcase\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/showcase\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "Showcase",
+      "url": "http://localhost:3005/showcase"
+    },
+    {
+      "type": "templates_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/templates\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/templates\", waiting until \"networkidle\"\u001b[22m\n",
+      "url": "http://localhost:3005/templates"
+    },
+    {
+      "type": "showcase_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/showcase/api-dashboard\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/showcase/api-dashboard\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "API Dashboard",
+      "url": "http://localhost:3005/showcase/api-dashboard"
+    },
+    {
+      "type": "showcase_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/showcase/react-playground\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/showcase/react-playground\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "React Playground",
+      "url": "http://localhost:3005/showcase/react-playground"
+    },
+    {
+      "type": "showcase_error",
+      "message": "page.goto: net::ERR_CONNECTION_REFUSED at http://localhost:3005/showcase/e2e-suite\nCall log:\n\u001b[2m  - navigating to \"http://localhost:3005/showcase/e2e-suite\", waiting until \"networkidle\"\u001b[22m\n",
+      "page": "E2E Suite",
+      "url": "http://localhost:3005/showcase/e2e-suite"
+    }
+  ],
+  "screenshots": []
+}

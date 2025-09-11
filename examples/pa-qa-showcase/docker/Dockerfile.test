@@ -1,0 +1,71 @@
+# Testing Dockerfile with Playwright and browsers
+FROM mcr.microsoft.com/playwright:v1.42.1-jammy
+
+# Set working directory
+WORKDIR /app
+
+# Install Node.js (specific version for consistency)
+RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
+    apt-get install -y nodejs
+
+# Install additional system dependencies for testing
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    xvfb \
+    dbus-x11 \
+    fonts-liberation \
+    libasound2 \
+    libatk-bridge2.0-0 \
+    libatk1.0-0 \
+    libatspi2.0-0 \
+    libdrm2 \
+    libgtk-3-0 \
+    libnspr4 \
+    libnss3 \
+    libwayland-client0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libxss1 \
+    libxtst6 \
+    xdg-utils \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user for security
+RUN groupadd -r pwuser && useradd -r -g pwuser -G audio,video pwuser && \
+    mkdir -p /home/pwuser/Downloads && \
+    chown -R pwuser:pwuser /home/pwuser
+
+# Copy package files
+COPY package*.json ./
+COPY yarn.lock* ./
+
+# Install dependencies
+RUN npm ci --include=dev
+
+# Install Playwright browsers and dependencies
+RUN npx playwright install --with-deps
+
+# Copy source code
+COPY . .
+
+# Set proper permissions
+RUN chown -R pwuser:pwuser /app
+
+# Switch to non-root user
+USER pwuser
+
+# Set environment variables for testing
+ENV NODE_ENV=test
+ENV CI=true
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+# Health check for testing container
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD npx playwright --version || exit 1
+
+# Default command runs all tests
+CMD ["npm", "run", "test:e2e"]

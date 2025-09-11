@@ -1,0 +1,890 @@
+---
+title: "Shared Testing Utilities"
+description: "Comprehensive guide to reusable testing utilities in the PA-QA framework"
+category: "utilities"
+order: 3
+---
+
+# Shared Testing Utilities
+
+PA-QA provides a rich set of shared utilities that work across different frameworks and testing environments, reducing code duplication and ensuring consistency.
+
+## Authentication Utilities
+
+### Multi-Framework Auth Helpers
+
+These utilities work across React, WordPress, and FastAPI projects:
+
+<TabbedCodeDemo
+  title="Authentication Test Helpers"
+  tabs={[
+    {
+      label: "React/TypeScript",
+      language: "typescript",
+      code: `// shared/testing-utilities/helpers/auth/auth-helpers.ts
+import { User } from '@/types'
+
+export interface AuthTestHelpers {
+  createTestUser(overrides?: Partial<User>): User
+  generateJWT(user: User, expiresIn?: string): string
+  mockAuthProvider(user?: User): void
+  loginAs(user: User): Promise<void>
+  logout(): Promise<void>
+}
+
+export const createAuthHelpers = (): AuthTestHelpers => ({
+  createTestUser: (overrides = {}) => ({
+    id: '123',
+    email: 'test@example.com',
+    name: 'Test User',
+    role: 'user',
+    createdAt: new Date(),
+    ...overrides
+  }),
+
+  generateJWT: (user, expiresIn = '1h') => {
+    // Mock JWT generation for testing
+    return btoa(JSON.stringify({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+      exp: Date.now() + (60 * 60 * 1000) // 1 hour
+    }))
+  },
+
+  mockAuthProvider: (user) => {
+    const mockStorage = {
+      token: user ? this.generateJWT(user) : null,
+      user: user || null
+    }
+    
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: (key: string) => mockStorage[key],
+        setItem: (key: string, value: string) => {
+          mockStorage[key] = value
+        },
+        removeItem: (key: string) => {
+          delete mockStorage[key]
+        }
+      }
+    })
+  },
+
+  loginAs: async (user) => {
+    const token = this.generateJWT(user)
+    localStorage.setItem('token', token)
+    localStorage.setItem('user', JSON.stringify(user))
+    
+    // Trigger auth state update
+    window.dispatchEvent(new Event('storage'))
+  },
+
+  logout: async () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    window.dispatchEvent(new Event('storage'))
+  }
+})`
+    },
+    {
+      label: "Python/FastAPI",
+      language: "python",
+      code: `# shared/testing-utilities/helpers/auth/auth_helpers.py
+from typing import Dict, Optional
+from datetime import datetime, timedelta
+import jwt
+from app.models import User
+
+class AuthTestHelpers:
+    def __init__(self, secret_key: str = "test-secret"):
+        self.secret_key = secret_key
+    
+    def create_test_user(self, **overrides) -> Dict:
+        default_user = {
+            "id": "123",
+            "email": "test@example.com", 
+            "name": "Test User",
+            "role": "user",
+            "created_at": datetime.utcnow()
+        }
+        return {**default_user, **overrides}
+    
+    def generate_jwt(self, user: Dict, expires_in: int = 3600) -> str:
+        payload = {
+            "sub": user["id"],
+            "email": user["email"],
+            "role": user["role"],
+            "exp": datetime.utcnow() + timedelta(seconds=expires_in)
+        }
+        return jwt.encode(payload, self.secret_key, algorithm="HS256")
+    
+    def create_auth_headers(self, user: Dict) -> Dict[str, str]:
+        token = self.generate_jwt(user)
+        return {"Authorization": f"Bearer {token}"}
+    
+    async def login_user(self, client, user: Dict):
+        response = await client.post("/auth/login", json={
+            "email": user["email"],
+            "password": "password123"
+        })
+        return response.json()["access_token"]
+
+# Usage in tests
+@pytest.fixture
+def auth_helpers():
+    return AuthTestHelpers()
+
+@pytest.mark.asyncio
+async def test_protected_endpoint(client, auth_helpers):
+    user = auth_helpers.create_test_user(role="admin")
+    headers = auth_helpers.create_auth_headers(user)
+    
+    response = await client.get("/admin/users", headers=headers)
+    assert response.status_code == 200`
+    },
+    {
+      label: "PHP/WordPress",
+      language: "php",
+      code: `<?php
+// shared/testing-utilities/helpers/auth/AuthHelpers.php
+
+class AuthTestHelpers {
+    public static function createTestUser($overrides = []) {
+        $defaults = [
+            'user_login' => 'testuser',
+            'user_email' => 'test@example.com',
+            'user_pass' => 'password123',
+            'display_name' => 'Test User',
+            'role' => 'subscriber'
+        ];
+        
+        return array_merge($defaults, $overrides);
+    }
+    
+    public static function createAndLoginUser($role = 'subscriber') {
+        $user_data = self::createTestUser(['role' => $role]);
+        $user_id = wp_create_user(
+            $user_data['user_login'],
+            $user_data['user_pass'],
+            $user_data['user_email']
+        );
+        
+        $user = new WP_User($user_id);
+        $user->set_role($role);
+        wp_set_current_user($user_id);
+        
+        return $user;
+    }
+    
+    public static function loginAs($user_id) {
+        wp_set_current_user($user_id);
+        wp_set_auth_cookie($user_id);
+    }
+    
+    public static function logout() {
+        wp_logout();
+        wp_set_current_user(0);
+    }
+    
+    public static function generateNonce($action = 'test_action') {
+        return wp_create_nonce($action);
+    }
+}
+
+// Usage in PHPUnit tests
+class UserTest extends WP_UnitTestCase {
+    public function test_admin_can_delete_user() {
+        $admin = AuthTestHelpers::createAndLoginUser('administrator');
+        $user = AuthTestHelpers::createAndLoginUser('subscriber');
+        
+        $result = wp_delete_user($user->ID);
+        $this->assertTrue($result);
+    }
+}`
+    }
+  ]}
+/>
+
+## Database Testing Utilities
+
+### Database State Management
+
+Utilities for managing database state across tests:
+
+<CodeDemo
+  title="Database Test Helpers"
+  language="typescript"
+  runnable={true}
+  code={`// shared/testing-utilities/helpers/database/db-helpers.ts
+export interface DatabaseTestHelpers {
+  setupTestData(): Promise<void>
+  cleanupTestData(): Promise<void> 
+  createTestRecord<T>(table: string, data: Partial<T>): Promise<T>
+  truncateTable(table: string): Promise<void>
+  seedTable<T>(table: string, records: T[]): Promise<T[]>
+}
+
+export const createDatabaseHelpers = (db: any): DatabaseTestHelpers => ({
+  setupTestData: async () => {
+    // Create test-specific tables or run migrations
+    await db.migrate.latest()
+    await db.seed.run()
+  },
+
+  cleanupTestData: async () => {
+    // Clean up test data
+    const tables = ['users', 'posts', 'comments']
+    for (const table of tables) {
+      await db(table).del()
+    }
+  },
+
+  createTestRecord: async <T>(table: string, data: Partial<T>): Promise<T> => {
+    const [record] = await db(table).insert(data).returning('*')
+    return record
+  },
+
+  truncateTable: async (table: string) => {
+    await db.raw(\`TRUNCATE TABLE \${table} RESTART IDENTITY CASCADE\`)
+  },
+
+  seedTable: async <T>(table: string, records: T[]): Promise<T[]> => {
+    return await db(table).insert(records).returning('*')
+  }
+})
+
+// Usage example
+beforeEach(async () => {
+  await dbHelpers.setupTestData()
+})
+
+afterEach(async () => {
+  await dbHelpers.cleanupTestData()
+})`}
+/>
+
+### Test Data Factories
+
+Generate realistic test data:
+
+<CodeDemo
+  title="Data Factory Pattern"
+  language="typescript"
+  runnable={true}
+  code={`// shared/testing-utilities/factories/index.ts
+import { faker } from '@faker-js/faker'
+
+export interface User {
+  id?: string
+  email: string
+  name: string
+  role: 'admin' | 'user' | 'guest'
+  createdAt?: Date
+}
+
+export interface Post {
+  id?: string
+  title: string
+  content: string
+  authorId: string
+  published: boolean
+  createdAt?: Date
+}
+
+export class Factory {
+  static user(overrides: Partial<User> = {}): User {
+    return {
+      id: faker.string.uuid(),
+      email: faker.internet.email(),
+      name: faker.person.fullName(),
+      role: faker.helpers.arrayElement(['admin', 'user', 'guest']),
+      createdAt: faker.date.recent(),
+      ...overrides
+    }
+  }
+  
+  static admin(overrides: Partial<User> = {}): User {
+    return this.user({ role: 'admin', ...overrides })
+  }
+  
+  static post(overrides: Partial<Post> = {}): Post {
+    return {
+      id: faker.string.uuid(),
+      title: faker.lorem.sentence(),
+      content: faker.lorem.paragraphs(3),
+      authorId: faker.string.uuid(),
+      published: faker.datatype.boolean(),
+      createdAt: faker.date.recent(),
+      ...overrides
+    }
+  }
+  
+  static createMany<T>(factory: () => T, count: number): T[] {
+    return Array.from({ length: count }, factory)
+  }
+}
+
+// Usage in tests
+const users = Factory.createMany(() => Factory.user(), 5)
+const admin = Factory.admin({ email: 'admin@example.com' })
+const publishedPost = Factory.post({ published: true })`}
+/>
+
+## API Testing Utilities
+
+### HTTP Client Helpers
+
+Simplified API testing across different frameworks:
+
+<CodeDemo
+  title="API Test Client"
+  language="typescript"
+  runnable={true}
+  code={`// shared/testing-utilities/helpers/api/api-client.ts
+export interface ApiTestClient {
+  get<T>(path: string, options?: RequestOptions): Promise<ApiResponse<T>>
+  post<T>(path: string, data?: any, options?: RequestOptions): Promise<ApiResponse<T>>
+  put<T>(path: string, data?: any, options?: RequestOptions): Promise<ApiResponse<T>>
+  delete<T>(path: string, options?: RequestOptions): Promise<ApiResponse<T>>
+  setAuth(token: string): void
+  clearAuth(): void
+}
+
+export interface ApiResponse<T> {
+  data: T
+  status: number
+  headers: Record<string, string>
+}
+
+export interface RequestOptions {
+  headers?: Record<string, string>
+  timeout?: number
+}
+
+export const createApiClient = (baseUrl: string): ApiTestClient => {
+  let authToken: string | null = null
+
+  const makeRequest = async <T>(
+    method: string, 
+    path: string, 
+    data?: any, 
+    options: RequestOptions = {}
+  ): Promise<ApiResponse<T>> => {
+    const url = \`\${baseUrl}\${path}\`
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options.headers
+    }
+
+    if (authToken) {
+      headers.Authorization = \`Bearer \${authToken}\`
+    }
+
+    const config: RequestInit = {
+      method,
+      headers,
+      ...(data && { body: JSON.stringify(data) })
+    }
+
+    const response = await fetch(url, config)
+    const responseData = await response.json()
+
+    return {
+      data: responseData,
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries())
+    }
+  }
+
+  return {
+    get: <T>(path: string, options?: RequestOptions) => 
+      makeRequest<T>('GET', path, undefined, options),
+    
+    post: <T>(path: string, data?: any, options?: RequestOptions) => 
+      makeRequest<T>('POST', path, data, options),
+    
+    put: <T>(path: string, data?: any, options?: RequestOptions) => 
+      makeRequest<T>('PUT', path, data, options),
+    
+    delete: <T>(path: string, options?: RequestOptions) => 
+      makeRequest<T>('DELETE', path, undefined, options),
+
+    setAuth: (token: string) => {
+      authToken = token
+    },
+
+    clearAuth: () => {
+      authToken = null
+    }
+  }
+}
+
+// Usage in tests
+const client = createApiClient('http://localhost:3000/api')
+
+test('creates user successfully', async () => {
+  const response = await client.post('/users', {
+    email: 'test@example.com',
+    name: 'Test User'
+  })
+  
+  expect(response.status).toBe(201)
+  expect(response.data.email).toBe('test@example.com')
+})`}
+/>
+
+## Component Testing Utilities
+
+### React Testing Utilities
+
+Enhanced testing utilities for React components:
+
+<CodeDemo
+  title="React Test Utilities"
+  language="typescript"
+  runnable={true}
+  code={`// shared/testing-utilities/helpers/react/test-utils.tsx
+import { render, RenderOptions } from '@testing-library/react'
+import { ReactElement } from 'react'
+import { BrowserRouter } from 'react-router-dom'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ThemeProvider } from 'styled-components'
+
+// Mock providers
+const AllTheProviders = ({ children }: { children: React.ReactNode }) => {
+  const queryClient = new QueryClient({
+    defaultOptions: {
+      queries: { retry: false },
+      mutations: { retry: false }
+    }
+  })
+
+  const theme = {
+    colors: {
+      primary: '#007bff',
+      secondary: '#6c757d'
+    }
+  }
+
+  return (
+    <BrowserRouter>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider theme={theme}>
+          {children}
+        </ThemeProvider>
+      </QueryClientProvider>
+    </BrowserRouter>
+  )
+}
+
+const customRender = (
+  ui: ReactElement,
+  options?: Omit<RenderOptions, 'wrapper'>
+) => render(ui, { wrapper: AllTheProviders, ...options })
+
+// Component-specific helpers
+export const renderWithRouter = (ui: ReactElement, { route = '/' } = {}) => {
+  window.history.pushState({}, 'Test page', route)
+  return customRender(ui)
+}
+
+export const renderWithUser = (ui: ReactElement, user?: User) => {
+  // Mock auth context with user
+  const AuthProvider = ({ children }: { children: React.ReactNode }) => (
+    <AuthContext.Provider value={{ user, isAuthenticated: !!user }}>
+      {children}
+    </AuthContext.Provider>
+  )
+  
+  return render(ui, { wrapper: AuthProvider })
+}
+
+// Form testing helpers
+export const fillForm = async (form: HTMLFormElement, data: Record<string, string>) => {
+  for (const [name, value] of Object.entries(data)) {
+    const field = form.querySelector(\`[name="\${name}"]\`) as HTMLInputElement
+    if (field) {
+      fireEvent.change(field, { target: { value } })
+    }
+  }
+}
+
+// Wait for async operations
+export const waitForApiCall = () => new Promise(resolve => setTimeout(resolve, 0))
+
+// Re-export everything
+export * from '@testing-library/react'
+export { customRender as render }`}
+/>
+
+## Performance Testing Utilities
+
+### Benchmark Helpers
+
+Measure and compare performance:
+
+<CodeDemo
+  title="Performance Benchmarks"
+  language="typescript"
+  runnable={true}
+  code={`// shared/testing-utilities/helpers/performance/benchmark.ts
+export interface BenchmarkResult {
+  name: string
+  duration: number
+  memory: number
+  iterations: number
+}
+
+export class Benchmark {
+  private results: BenchmarkResult[] = []
+
+  async measure(name: string, fn: () => Promise<any> | any, iterations = 1000): Promise<BenchmarkResult> {
+    // Warm up
+    for (let i = 0; i < 10; i++) {
+      await fn()
+    }
+
+    // Measure memory before
+    const memBefore = this.getMemoryUsage()
+    const start = performance.now()
+
+    // Run iterations
+    for (let i = 0; i < iterations; i++) {
+      await fn()
+    }
+
+    const end = performance.now()
+    const memAfter = this.getMemoryUsage()
+
+    const result: BenchmarkResult = {
+      name,
+      duration: end - start,
+      memory: memAfter - memBefore,
+      iterations
+    }
+
+    this.results.push(result)
+    return result
+  }
+
+  compare(name1: string, name2: string): string {
+    const result1 = this.results.find(r => r.name === name1)
+    const result2 = this.results.find(r => r.name === name2)
+
+    if (!result1 || !result2) {
+      throw new Error('Results not found for comparison')
+    }
+
+    const speedDiff = ((result1.duration - result2.duration) / result2.duration) * 100
+    const fasterName = result1.duration < result2.duration ? name1 : name2
+    
+    return \`\${fasterName} is \${Math.abs(speedDiff).toFixed(2)}% faster\`
+  }
+
+  private getMemoryUsage(): number {
+    if (typeof performance !== 'undefined' && 'memory' in performance) {
+      return (performance as any).memory.usedJSHeapSize
+    }
+    return 0
+  }
+
+  getResults(): BenchmarkResult[] {
+    return [...this.results]
+  }
+
+  clear(): void {
+    this.results = []
+  }
+}
+
+// Usage example
+const benchmark = new Benchmark()
+
+test('array vs set performance', async () => {
+  const data = Array.from({ length: 1000 }, (_, i) => i)
+  
+  const arrayResult = await benchmark.measure('array-includes', () => {
+    return data.includes(500)
+  })
+  
+  const setData = new Set(data)
+  const setResult = await benchmark.measure('set-has', () => {
+    return setData.has(500)
+  })
+  
+  expect(setResult.duration).toBeLessThan(arrayResult.duration)
+  console.log(benchmark.compare('array-includes', 'set-has'))
+})`}
+/>
+
+## Error Testing Utilities
+
+### Error Boundary Testing
+
+Test error handling in React components:
+
+<CodeDemo
+  title="Error Testing Helpers"
+  language="typescript"
+  runnable={true}
+  code={`// shared/testing-utilities/helpers/error/error-helpers.tsx
+import { Component, ReactNode } from 'react'
+
+interface ErrorBoundaryState {
+  hasError: boolean
+  error?: Error
+}
+
+export class TestErrorBoundary extends Component<
+  { children: ReactNode; onError?: (error: Error) => void },
+  ErrorBoundaryState
+> {
+  constructor(props: any) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error: Error) {
+    this.props.onError?.(error)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return <div data-testid="error-boundary">Something went wrong</div>
+    }
+
+    return this.props.children
+  }
+}
+
+export const renderWithErrorBoundary = (ui: ReactElement, onError?: (error: Error) => void) => {
+  return render(
+    <TestErrorBoundary onError={onError}>
+      {ui}
+    </TestErrorBoundary>
+  )
+}
+
+// Async error testing
+export const expectAsyncError = async (fn: () => Promise<any>, expectedError?: string) => {
+  try {
+    await fn()
+    throw new Error('Expected function to throw')
+  } catch (error) {
+    if (expectedError) {
+      expect(error.message).toContain(expectedError)
+    }
+    return error
+  }
+}
+
+// Network error simulation
+export const simulateNetworkError = () => {
+  const originalFetch = global.fetch
+  global.fetch = jest.fn(() => Promise.reject(new Error('Network error')))
+  
+  return () => {
+    global.fetch = originalFetch
+  }
+}
+
+// Usage examples
+test('component handles errors gracefully', () => {
+  const ThrowError = () => {
+    throw new Error('Test error')
+  }
+  
+  const onError = vi.fn()
+  renderWithErrorBoundary(<ThrowError />, onError)
+  
+  expect(screen.getByTestId('error-boundary')).toBeInTheDocument()
+  expect(onError).toHaveBeenCalledWith(expect.any(Error))
+})
+
+test('handles async errors', async () => {
+  const error = await expectAsyncError(
+    () => Promise.reject(new Error('Async error')),
+    'Async error'
+  )
+  
+  expect(error).toBeInstanceOf(Error)
+})`}
+/>
+
+## Accessibility Testing Utilities
+
+### A11y Test Helpers
+
+Comprehensive accessibility testing utilities:
+
+<CodeDemo
+  title="Accessibility Testing Helpers"
+  language="typescript"
+  runnable={true}
+  code={`// shared/testing-utilities/helpers/a11y/a11y-helpers.ts
+import { axe, toHaveNoViolations } from 'jest-axe'
+import { RenderResult } from '@testing-library/react'
+
+expect.extend(toHaveNoViolations)
+
+export interface A11yTestOptions {
+  rules?: string[]
+  tags?: string[]
+  exclude?: string[]
+}
+
+export const checkA11y = async (
+  container: HTMLElement,
+  options: A11yTestOptions = {}
+) => {
+  const results = await axe(container, {
+    rules: options.rules ? 
+      Object.fromEntries(options.rules.map(rule => [rule, { enabled: true }])) : 
+      undefined,
+    tags: options.tags,
+    exclude: options.exclude
+  })
+  
+  expect(results).toHaveNoViolations()
+  return results
+}
+
+export const checkKeyboardNavigation = async (container: HTMLElement) => {
+  const focusableElements = container.querySelectorAll(
+    'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+  )
+  
+  // Test tab order
+  for (let i = 0; i < focusableElements.length; i++) {
+    const element = focusableElements[i] as HTMLElement
+    element.focus()
+    expect(document.activeElement).toBe(element)
+  }
+}
+
+export const checkAriaLabels = (container: HTMLElement) => {
+  const elementsNeedingLabels = container.querySelectorAll(
+    'input:not([aria-label]):not([aria-labelledby]), button:not([aria-label]):not([aria-labelledby])'
+  )
+  
+  elementsNeedingLabels.forEach(element => {
+    const hasVisibleLabel = element.textContent?.trim() || 
+                           element.getAttribute('title') ||
+                           element.getAttribute('placeholder')
+    
+    expect(hasVisibleLabel).toBeTruthy()
+  })
+}
+
+export const checkColorContrast = async (container: HTMLElement) => {
+  // This would integrate with a color contrast checking library
+  const results = await axe(container, {
+    rules: {
+      'color-contrast': { enabled: true },
+      'color-contrast-enhanced': { enabled: true }
+    }
+  })
+  
+  expect(results).toHaveNoViolations()
+}
+
+// Screen reader testing helpers
+export const announceToScreenReader = (message: string) => {
+  const announcement = document.createElement('div')
+  announcement.setAttribute('aria-live', 'polite')
+  announcement.setAttribute('aria-atomic', 'true')
+  announcement.style.position = 'absolute'
+  announcement.style.left = '-10000px'
+  announcement.textContent = message
+  
+  document.body.appendChild(announcement)
+  
+  setTimeout(() => {
+    document.body.removeChild(announcement)
+  }, 1000)
+}
+
+// Usage in tests
+test('component is accessible', async () => {
+  const { container } = render(<MyComponent />)
+  
+  await checkA11y(container)
+  await checkKeyboardNavigation(container)
+  checkAriaLabels(container)
+  await checkColorContrast(container)
+})`}
+/>
+
+## Utility Configuration
+
+### Cross-Framework Setup
+
+Configure utilities for different environments:
+
+<CodeDemo
+  title="Utility Configuration"
+  language="typescript"
+  runnable={false}
+  code={`// shared/testing-utilities/config/index.ts
+export interface TestConfig {
+  framework: 'react' | 'wordpress' | 'fastapi'
+  database?: {
+    url: string
+    type: 'postgres' | 'mysql' | 'sqlite'
+  }
+  auth?: {
+    secretKey: string
+    expiresIn: string
+  }
+  api?: {
+    baseUrl: string
+    timeout: number
+  }
+}
+
+export const createTestUtilities = (config: TestConfig) => {
+  const utilities = {
+    auth: createAuthHelpers(config),
+    database: config.database ? createDatabaseHelpers(config.database) : null,
+    api: config.api ? createApiClient(config.api.baseUrl) : null,
+    performance: new Benchmark(),
+  }
+
+  // Framework-specific utilities
+  if (config.framework === 'react') {
+    utilities.react = createReactHelpers()
+  }
+
+  return utilities
+}
+
+// Usage in test setup
+const testUtils = createTestUtilities({
+  framework: 'react',
+  database: {
+    url: 'sqlite:///:memory:',
+    type: 'sqlite'
+  },
+  auth: {
+    secretKey: 'test-secret',
+    expiresIn: '1h'
+  },
+  api: {
+    baseUrl: 'http://localhost:3000/api',
+    timeout: 5000
+  }
+})
+
+export { testUtils }`}
+/>
+
+## Next Steps
+
+- **[Best Practices](/best-practices)** - Learn testing best practices
+- **[CI/CD Integration](/ci-cd)** - Set up automated testing
+- **[Templates](/templates)** - Explore project templates

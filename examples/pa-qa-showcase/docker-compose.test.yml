@@ -1,0 +1,239 @@
+version: '3.8'
+
+services:
+  # Test runner service
+  test-runner:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    container_name: pa-qa-test-runner
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - DATABASE_URL=postgresql://postgres:password@postgres-test:5432/pa_qa_test
+      - REDIS_URL=redis://redis-test:6379
+      - BASE_URL=http://app-test:3000
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - test_results:/app/test-results
+      - allure_results:/app/allure-results
+      - coverage_reports:/app/coverage
+    depends_on:
+      app-test:
+        condition: service_healthy
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    command: ["npm", "run", "test:all"]
+
+  # Application under test
+  app-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    container_name: pa-qa-app-test
+    ports:
+      - "3000"
+    environment:
+      - NODE_ENV=test
+      - DATABASE_URL=postgresql://postgres:password@postgres-test:5432/pa_qa_test
+      - REDIS_URL=redis://redis-test:6379
+      - NEXTAUTH_URL=http://app-test:3000
+      - NEXTAUTH_SECRET=test-secret-key
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  # Test database
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: pa-qa-postgres-test
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=pa_qa_test
+    volumes:
+      - ./docker/init-test.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - test-network
+    tmpfs:
+      - /var/lib/postgresql/data
+
+  # Test Redis
+  redis-test:
+    image: redis:7-alpine
+    container_name: pa-qa-redis-test
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - test-network
+    tmpfs:
+      - /data
+
+  # Unit test runner
+  unit-tests:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    container_name: pa-qa-unit-tests
+    environment:
+      - NODE_ENV=test
+      - CI=true
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - coverage_reports:/app/coverage
+    networks:
+      - test-network
+    command: ["npm", "run", "test:unit"]
+
+  # Integration test runner
+  integration-tests:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    container_name: pa-qa-integration-tests
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - DATABASE_URL=postgresql://postgres:password@postgres-test:5432/pa_qa_test
+      - REDIS_URL=redis://redis-test:6379
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - test_results:/app/test-results
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+      redis-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    command: ["npm", "run", "test:integration"]
+
+  # E2E test runner
+  e2e-tests:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    container_name: pa-qa-e2e-tests
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - BASE_URL=http://app-test:3000
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - test_results:/app/test-results
+      - ./tests/e2e/screenshots:/app/tests/e2e/screenshots
+      - ./tests/e2e/videos:/app/tests/e2e/videos
+    depends_on:
+      app-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    command: ["npm", "run", "test:e2e"]
+
+  # Performance test runner
+  performance-tests:
+    image: loadimpact/k6:latest
+    container_name: pa-qa-performance-tests
+    environment:
+      - BASE_URL=http://app-test:3000
+    volumes:
+      - ./tests/performance:/scripts
+      - performance_results:/results
+    depends_on:
+      app-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    command: ["k6", "run", "/scripts/load-test.js"]
+
+  # Accessibility test runner
+  accessibility-tests:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.test
+    container_name: pa-qa-accessibility-tests
+    environment:
+      - NODE_ENV=test
+      - CI=true
+      - BASE_URL=http://app-test:3000
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - test_results:/app/test-results
+    depends_on:
+      app-test:
+        condition: service_healthy
+    networks:
+      - test-network
+    command: ["npm", "run", "test:a11y"]
+
+  # Test results aggregator
+  allure-server:
+    image: frankescobar/allure-docker-service
+    container_name: pa-qa-allure-server
+    ports:
+      - "5050:5050"
+    environment:
+      - CHECK_RESULTS_EVERY_SECONDS=3
+      - KEEP_HISTORY=20
+    volumes:
+      - allure_results:/app/allure-results
+      - allure_reports:/app/default-reports
+    networks:
+      - test-network
+
+  # Coverage report server
+  coverage-server:
+    image: nginx:alpine
+    container_name: pa-qa-coverage-server
+    ports:
+      - "8080:80"
+    volumes:
+      - coverage_reports:/usr/share/nginx/html
+      - ./docker/nginx-coverage.conf:/etc/nginx/nginx.conf
+    networks:
+      - test-network
+
+volumes:
+  test_results:
+    driver: local
+  allure_results:
+    driver: local
+  allure_reports:
+    driver: local
+  coverage_reports:
+    driver: local
+  performance_results:
+    driver: local
+
+networks:
+  test-network:
+    driver: bridge
