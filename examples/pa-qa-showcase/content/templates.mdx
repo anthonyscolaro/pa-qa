@@ -1,0 +1,594 @@
+---
+title: "Project Templates"
+description: "Ready-to-use testing templates for React, WordPress, FastAPI, and more"
+category: "templates"
+order: 6
+---
+
+<!-- Auto-updated: 2025-01-11T10:30:00.000Z -->
+
+# Project Templates
+
+PA-QA provides production-ready templates for popular frameworks and project types. Each template includes comprehensive testing setups, configurations, and best practices.
+
+## Available Templates
+
+<TemplateGrid
+  title="Framework Templates"
+  templates={[
+    {
+      name: "React Web App",
+      category: "web-apps",
+      framework: "react",
+      description: "Modern React application with TypeScript, Vitest, and Playwright",
+      features: ["TypeScript", "Vitest", "Playwright", "MSW", "Tailwind CSS"],
+      coverage: 85,
+      testCount: 47,
+      path: "project-types/web-apps/react"
+    },
+    {
+      name: "FastAPI Service", 
+      category: "api-services",
+      framework: "fastapi",
+      description: "Python REST API with async support and comprehensive testing",
+      features: ["Pytest", "AsyncIO", "SQLAlchemy", "Pydantic", "Docker"],
+      coverage: 92,
+      testCount: 63,
+      path: "project-types/api-services/fastapi"
+    },
+    {
+      name: "WordPress Plugin",
+      category: "wordpress", 
+      framework: "plugin",
+      description: "WordPress plugin with PHPUnit testing and WP-CLI integration",
+      features: ["PHPUnit", "WP-CLI", "Codeception", "PHPStan", "Composer"],
+      coverage: 78,
+      testCount: 31,
+      path: "project-types/wordpress/plugin"
+    }
+  ]}
+/>
+
+## Template Structure
+
+Each template follows a consistent structure for easy adoption:
+
+<FileTree
+  title="Standard Template Structure"
+  structure={{
+    "project-types/[category]/[framework]/": {
+      "tests/": {
+        "unit/": ["Component.test.tsx", "utils.test.ts"],
+        "integration/": ["api.test.ts", "database.test.ts"], 
+        "e2e/": ["user-flows.spec.ts"],
+        "fixtures/": ["users.json", "posts.json"],
+        "setup/": ["test-utils.tsx", "mocks.ts"]
+      },
+      "configs/": {
+        "jest.config.js": null,
+        "playwright.config.ts": null,
+        "vitest.config.ts": null,
+        ".eslintrc.js": null,
+        "tsconfig.json": null
+      },
+      "docker/": {
+        "Dockerfile.test": null,
+        "docker-compose.test.yml": null
+      },
+      ".github/": {
+        "workflows/": ["test.yml", "deploy.yml"]
+      },
+      "package.json": null,
+      "README.md": null
+    }
+  }}
+/>
+
+## React Web App Template
+
+### Features & Tools
+
+<FeatureMatrix
+  title="React Template Features"
+  features={[
+    { name: "TypeScript", included: true, description: "Full type safety with strict mode" },
+    { name: "Vitest", included: true, description: "Fast unit and component testing" },
+    { name: "Playwright", included: true, description: "Cross-browser E2E testing" },
+    { name: "Testing Library", included: true, description: "React component testing utilities" },
+    { name: "MSW", included: true, description: "API mocking for reliable tests" },
+    { name: "ESLint", included: true, description: "Code quality and consistency" },
+    { name: "Prettier", included: true, description: "Code formatting" },
+    { name: "Husky", included: true, description: "Git hooks for quality gates" }
+  ]}
+/>
+
+### Setup Instructions
+
+<StepByStep
+  title="React Template Setup"
+  steps={[
+    {
+      title: "Copy Template Files",
+      description: "Copy the React template to your project",
+      code: `# Clone PA-QA repository
+git clone https://github.com/your-agency/pa-qa.git
+
+# Copy React template
+cp -r pa-qa/project-types/web-apps/react/* ./your-project/
+
+# Copy shared utilities
+cp -r pa-qa/shared/testing-utilities ./your-project/shared/`
+    },
+    {
+      title: "Install Dependencies",
+      description: "Install testing dependencies and tools",
+      code: `# Install core dependencies
+npm install
+
+# Install additional testing tools
+npm install --save-dev $(cat pa-qa-deps.json | jq -r '.devDependencies | keys[]')
+
+# Install Playwright browsers
+npx playwright install`
+    },
+    {
+      title: "Configure Environment",
+      description: "Set up environment variables and configuration",
+      code: `# Copy environment template
+cp .env.test.example .env.test
+
+# Update configuration files
+# - Update vitest.config.ts with your paths
+# - Update playwright.config.ts with your base URL
+# - Update package.json scripts`
+    },
+    {
+      title: "Run Tests",
+      description: "Verify the setup works correctly",
+      code: `# Run all tests
+npm run test:all
+
+# Run tests with coverage
+npm run test:coverage
+
+# Run E2E tests
+npm run test:e2e`
+    }
+  ]}
+/>
+
+### Example Test Structure
+
+<CodeDemo
+  title="React Component Test Example"
+  language="typescript"
+  runnable={true}
+  code={`// tests/unit/components/Button.test.tsx
+import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { Button } from '@/components/Button'
+
+describe('Button Component', () => {
+  it('renders with correct text and variant', () => {
+    render(<Button variant="primary">Click me</Button>)
+    
+    const button = screen.getByRole('button', { name: /click me/i })
+    expect(button).toBeInTheDocument()
+    expect(button).toHaveClass('btn-primary')
+  })
+
+  it('calls onClick handler when clicked', () => {
+    const handleClick = vi.fn()
+    render(<Button onClick={handleClick}>Click me</Button>)
+    
+    fireEvent.click(screen.getByRole('button'))
+    expect(handleClick).toHaveBeenCalledOnce()
+  })
+
+  it('is disabled when loading', () => {
+    render(<Button loading>Click me</Button>)
+    
+    const button = screen.getByRole('button')
+    expect(button).toBeDisabled()
+    expect(screen.getByText(/loading/i)).toBeInTheDocument()
+  })
+})`}
+/>
+
+## FastAPI Service Template
+
+### Features & Tools
+
+<FeatureMatrix
+  title="FastAPI Template Features"
+  features={[
+    { name: "Pytest", included: true, description: "Comprehensive Python testing framework" },
+    { name: "AsyncIO", included: true, description: "Full async/await support" },
+    { name: "SQLAlchemy 2.0", included: true, description: "Modern ORM with async support" },
+    { name: "Pydantic V2", included: true, description: "Data validation and serialization" },
+    { name: "httpx", included: true, description: "Async HTTP client for testing" },
+    { name: "Factory Boy", included: true, description: "Test data generation" },
+    { name: "Ruff", included: true, description: "Fast Python linter and formatter" },
+    { name: "mypy", included: true, description: "Static type checking" }
+  ]}
+/>
+
+### Database Testing
+
+<CodeDemo
+  title="FastAPI Database Test Example"
+  language="python"
+  runnable={true}
+  code={`# tests/integration/test_user_service.py
+import pytest
+from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.main import app
+from app.models import User
+from app.services.user_service import UserService
+from tests.factories import UserFactory
+
+@pytest.mark.asyncio
+class TestUserService:
+    async def test_create_user_success(
+        self, 
+        db_session: AsyncSession,
+        user_service: UserService
+    ):
+        # Arrange
+        user_data = UserFactory.build()
+        
+        # Act
+        created_user = await user_service.create_user(user_data)
+        
+        # Assert
+        assert created_user.id is not None
+        assert created_user.email == user_data.email
+        assert created_user.is_active is True
+        
+        # Verify in database
+        db_user = await db_session.get(User, created_user.id)
+        assert db_user is not None
+        assert db_user.email == user_data.email
+
+    async def test_create_user_duplicate_email(
+        self,
+        db_session: AsyncSession, 
+        user_service: UserService
+    ):
+        # Arrange - create existing user
+        existing_user = await UserFactory.create_async(
+            session=db_session,
+            email="test@example.com"
+        )
+        
+        new_user_data = UserFactory.build(email="test@example.com")
+        
+        # Act & Assert
+        with pytest.raises(ValueError, match="Email already exists"):
+            await user_service.create_user(new_user_data)
+
+    async def test_get_users_with_pagination(
+        self,
+        db_session: AsyncSession,
+        user_service: UserService
+    ):
+        # Arrange - create test users
+        users = await UserFactory.create_batch_async(
+            session=db_session,
+            size=15
+        )
+        
+        # Act
+        result = await user_service.get_users(skip=0, limit=10)
+        
+        # Assert
+        assert len(result.items) == 10
+        assert result.total == 15
+        assert result.has_next is True`}
+/>
+
+## WordPress Plugin Template
+
+### Features & Tools  
+
+<FeatureMatrix
+  title="WordPress Template Features"
+  features={[
+    { name: "PHPUnit 9", included: true, description: "Modern PHP testing framework" },
+    { name: "WP-CLI", included: true, description: "WordPress command line testing" },
+    { name: "Codeception", included: true, description: "Acceptance and functional testing" },
+    { name: "PHPStan Level 8", included: true, description: "Strict static analysis" },
+    { name: "PHP-CS-Fixer", included: true, description: "Code style fixing" },
+    { name: "WP Test Suite", included: true, description: "WordPress core testing utilities" },
+    { name: "Docker Support", included: true, description: "Containerized testing environment" },
+    { name: "GitHub Actions", included: true, description: "CI/CD pipeline templates" }
+  ]}
+/>
+
+### Plugin Testing
+
+<CodeDemo
+  title="WordPress Plugin Test Example"
+  language="php"
+  runnable={true}
+  code={`<?php
+// tests/unit/UserManagerTest.php
+use PHPUnit\Framework\TestCase;
+use Brain\Monkey\Functions;
+use Brain\Monkey\Actions;
+use Brain\Monkey\Filters;
+
+class UserManagerTest extends WP_UnitTestCase {
+    private $user_manager;
+    
+    public function setUp(): void {
+        parent::setUp();
+        $this->user_manager = new UserManager();
+    }
+    
+    public function test_create_user_with_valid_data(): void {
+        // Arrange
+        $user_data = [
+            'user_login' => 'testuser',
+            'user_email' => 'test@example.com',
+            'user_pass' => 'securepassword123',
+            'display_name' => 'Test User'
+        ];
+        
+        // Act
+        $user_id = $this->user_manager->create_user($user_data);
+        
+        // Assert
+        $this->assertIsInt($user_id);
+        $this->assertGreaterThan(0, $user_id);
+        
+        $user = get_user_by('id', $user_id);
+        $this->assertEquals('test@example.com', $user->user_email);
+        $this->assertEquals('Test User', $user->display_name);
+    }
+    
+    public function test_create_user_with_invalid_email(): void {
+        // Arrange
+        $user_data = [
+            'user_login' => 'testuser',
+            'user_email' => 'invalid-email',
+            'user_pass' => 'securepassword123'
+        ];
+        
+        // Act & Assert
+        $this->expectException(InvalidArgumentException::class);
+        $this->expectExceptionMessage('Invalid email address');
+        
+        $this->user_manager->create_user($user_data);
+    }
+    
+    public function test_user_registration_triggers_welcome_email(): void {
+        // Arrange
+        $user_data = [
+            'user_login' => 'newuser',
+            'user_email' => 'newuser@example.com',
+            'user_pass' => 'password123'
+        ];
+        
+        // Mock email sending
+        Functions\expect('wp_mail')
+            ->once()
+            ->with(
+                'newuser@example.com',
+                'Welcome to Our Site',
+                Mockery::type('string')
+            )
+            ->andReturn(true);
+        
+        // Act
+        $user_id = $this->user_manager->create_user($user_data);
+        
+        // Assert - wp_mail expectation is automatically verified
+        $this->assertGreaterThan(0, $user_id);
+    }
+    
+    public function tearDown(): void {
+        // Clean up test users
+        $users = get_users(['meta_key' => 'test_user', 'meta_value' => true]);
+        foreach ($users as $user) {
+            wp_delete_user($user->ID);
+        }
+        
+        parent::tearDown();
+    }
+}`}
+/>
+
+## Template Customization
+
+### Configuration Options
+
+<ConfigurationPanel
+  title="Template Customization Options"
+  sections={[
+    {
+      name: "Testing Framework",
+      options: [
+        { name: "Unit Testing", choices: ["Vitest", "Jest", "Pytest", "PHPUnit"] },
+        { name: "E2E Testing", choices: ["Playwright", "Cypress", "Selenium"] },
+        { name: "Component Testing", choices: ["Testing Library", "Enzyme", "Vue Test Utils"] }
+      ]
+    },
+    {
+      name: "Code Quality",
+      options: [
+        { name: "Linting", choices: ["ESLint", "Ruff", "PHPStan", "Pylint"] },
+        { name: "Formatting", choices: ["Prettier", "Black", "PHP-CS-Fixer"] },
+        { name: "Type Checking", choices: ["TypeScript", "mypy", "PHPStan"] }
+      ]
+    },
+    {
+      name: "CI/CD Platform",
+      options: [
+        { name: "Platform", choices: ["GitHub Actions", "GitLab CI", "Jenkins", "Bitbucket"] },
+        { name: "Node Versions", choices: ["18, 20", "20, 21", "18, 20, 21"] },
+        { name: "Coverage Reporting", choices: ["Codecov", "Coveralls", "Built-in"] }
+      ]
+    }
+  ]}
+/>
+
+### Custom Template Generator
+
+<TemplateGenerator
+  title="Generate Custom Template"
+  onGenerate={(config) => {
+    // This would trigger template generation based on selections
+    console.log('Generating template with config:', config);
+  }}
+/>
+
+## Migration Guides
+
+### From Existing Projects
+
+<MigrationGuide
+  title="Migrate Existing Project to PA-QA"
+  migrations={[
+    {
+      from: "Create React App",
+      to: "PA-QA React Template", 
+      difficulty: "Easy",
+      duration: "30 minutes",
+      steps: [
+        "Install PA-QA testing dependencies",
+        "Copy test configurations", 
+        "Update package.json scripts",
+        "Migrate existing tests to new structure"
+      ]
+    },
+    {
+      from: "Legacy PHP Project",
+      to: "PA-QA WordPress Template",
+      difficulty: "Medium", 
+      duration: "2 hours",
+      steps: [
+        "Set up Composer and PHPUnit",
+        "Create WordPress testing environment",
+        "Migrate manual tests to PHPUnit",
+        "Add CI/CD pipeline"
+      ]
+    },
+    {
+      from: "Flask/Django API",
+      to: "PA-QA FastAPI Template",
+      difficulty: "Hard",
+      duration: "4 hours", 
+      steps: [
+        "Port routes to FastAPI",
+        "Update database models",
+        "Migrate tests to pytest",
+        "Set up async testing"
+      ]
+    }
+  ]}
+/>
+
+## Template Maintenance
+
+### Updating Templates
+
+<UpdateProcess
+  title="Template Update Process"
+  process={[
+    {
+      stage: "Detection",
+      description: "Automated scanning detects outdated dependencies",
+      automation: true
+    },
+    {
+      stage: "Testing", 
+      description: "Update dependencies and run full test suite",
+      automation: true
+    },
+    {
+      stage: "Validation",
+      description: "Validate templates work across supported versions",
+      automation: true
+    },
+    {
+      stage: "Documentation",
+      description: "Update documentation and migration guides",
+      automation: false
+    },
+    {
+      stage: "Release",
+      description: "Tag new template version and notify users",
+      automation: true
+    }
+  ]}
+/>
+
+### Version Compatibility
+
+<CompatibilityMatrix
+  title="Template Version Compatibility"
+  matrix={[
+    { template: "React", versions: ["18.0+", "TypeScript 5.0+", "Node 18+"] },
+    { template: "FastAPI", versions: ["0.104+", "Python 3.9+", "Pydantic 2.0+"] },
+    { template: "WordPress", versions: ["6.0+", "PHP 8.0+", "PHPUnit 9.0+"] }
+  ]}
+/>
+
+## Community Templates
+
+### Contributing
+
+<ContributionGuide
+  title="Contributing New Templates"
+  requirements={[
+    "Follow PA-QA structure conventions",
+    "Include comprehensive test examples", 
+    "Provide clear setup documentation",
+    "Support CI/CD integration",
+    "Maintain 80%+ test coverage",
+    "Include Docker configurations"
+  ]}
+  process={[
+    "Fork PA-QA repository",
+    "Create template in appropriate category",
+    "Add tests and documentation",
+    "Submit pull request",
+    "Address review feedback",
+    "Template merged and released"
+  ]}
+/>
+
+### Popular Community Templates
+
+<CommunityTemplates
+  title="Community Contributed Templates"
+  templates={[
+    {
+      name: "Vue 3 + Vite",
+      author: "Community",
+      stars: 124,
+      description: "Vue 3 application with Composition API and Vite tooling"
+    },
+    {
+      name: "Express.js API",
+      author: "Community", 
+      stars: 89,
+      description: "Node.js REST API with Express and comprehensive testing"
+    },
+    {
+      name: "Laravel Package",
+      author: "Community",
+      stars: 67,
+      description: "Laravel package template with PHPUnit and Orchestra Testbench"
+    }
+  ]}
+/>
+
+## Next Steps
+
+- **[Getting Started](/getting-started)** - Set up your first PA-QA project
+- **[Testing Patterns](/testing-patterns)** - Learn testing best practices  
+- **[CI/CD Integration](/ci-cd)** - Automate your testing pipeline

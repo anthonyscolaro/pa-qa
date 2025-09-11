@@ -1,0 +1,803 @@
+---
+title: "Testing Best Practices"
+description: "Proven approaches and guidelines for effective testing in web development"
+category: "practices"
+order: 4
+---
+
+# Testing Best Practices
+
+Follow these proven practices to create maintainable, reliable, and effective test suites using the PA-QA framework.
+
+## Testing Philosophy
+
+### Test-Driven Development (TDD)
+
+TDD helps you write better code by designing interfaces first:
+
+<ProcessFlow
+  title="TDD Cycle"
+  steps={[
+    { 
+      name: "Red", 
+      description: "Write a failing test", 
+      color: "#ef4444",
+      duration: "2-5 min"
+    },
+    { 
+      name: "Green", 
+      description: "Write minimal code to pass", 
+      color: "#10b981",
+      duration: "5-15 min"
+    },
+    { 
+      name: "Refactor", 
+      description: "Clean up and optimize", 
+      color: "#3b82f6",
+      duration: "5-10 min"
+    }
+  ]}
+  cyclic={true}
+/>
+
+<CodeDemo
+  title="TDD Example: Building a Calculator"
+  language="typescript"
+  runnable={true}
+  code={`// Step 1: Write the test first (RED)
+describe('Calculator', () => {
+  test('adds two numbers correctly', () => {
+    const calculator = new Calculator()
+    const result = calculator.add(2, 3)
+    expect(result).toBe(5)
+  })
+})
+
+// Step 2: Write minimal implementation (GREEN)
+class Calculator {
+  add(a: number, b: number): number {
+    return a + b
+  }
+}
+
+// Step 3: Refactor if needed
+class Calculator {
+  add(a: number, b: number): number {
+    if (typeof a !== 'number' || typeof b !== 'number') {
+      throw new Error('Arguments must be numbers')
+    }
+    return a + b
+  }
+}`}
+/>
+
+### Testing Mindset
+
+<PrincipleCard
+  title="Core Testing Principles"
+  principles={[
+    {
+      title: "Test Behavior, Not Implementation",
+      description: "Focus on what the code does, not how it does it",
+      example: "Test that clicking a button submits a form, not that setState was called"
+    },
+    {
+      title: "Make Tests Independent",
+      description: "Each test should be able to run in isolation",
+      example: "Use beforeEach to set up fresh state for each test"
+    },
+    {
+      title: "Use Descriptive Names",
+      description: "Test names should clearly describe the scenario",
+      example: "should display error message when email is invalid"
+    },
+    {
+      title: "Keep Tests Simple",
+      description: "One assertion per test when possible",
+      example: "Split complex scenarios into multiple focused tests"
+    }
+  ]}
+/>
+
+## Code Coverage Guidelines
+
+### Coverage Targets
+
+Different types of code require different coverage levels:
+
+<CoverageChart
+  title="Recommended Coverage Targets"
+  data={[
+    { category: "Business Logic", target: 95, current: 92, color: "#ef4444" },
+    { category: "API Endpoints", target: 90, current: 88, color: "#f59e0b" },
+    { category: "Components", target: 85, current: 91, color: "#10b981" },
+    { category: "Utilities", target: 95, current: 96, color: "#3b82f6" },
+    { category: "Integration", target: 70, current: 74, color: "#8b5cf6" }
+  ]}
+/>
+
+### Coverage Quality Over Quantity
+
+<CodeDemo
+  title="Good vs Bad Coverage"
+  language="typescript"
+  runnable={true}
+  code={`// ❌ Bad: High coverage, low value
+test('user service exists', () => {
+  const userService = new UserService()
+  expect(userService).toBeDefined()
+  expect(userService.findById).toBeDefined()
+  expect(userService.create).toBeDefined()
+  expect(userService.update).toBeDefined()
+  expect(userService.delete).toBeDefined()
+})
+
+// ✅ Good: Meaningful coverage
+describe('UserService', () => {
+  test('findById returns user when user exists', async () => {
+    const mockUser = { id: '1', name: 'John', email: 'john@example.com' }
+    mockDatabase.users.findUnique.mockResolvedValue(mockUser)
+    
+    const result = await userService.findById('1')
+    
+    expect(result).toEqual(mockUser)
+    expect(mockDatabase.users.findUnique).toHaveBeenCalledWith({
+      where: { id: '1' }
+    })
+  })
+
+  test('findById throws error when user not found', async () => {
+    mockDatabase.users.findUnique.mockResolvedValue(null)
+    
+    await expect(userService.findById('999')).rejects.toThrow('User not found')
+  })
+
+  test('create validates email format', async () => {
+    const invalidUser = { name: 'John', email: 'invalid-email' }
+    
+    await expect(userService.create(invalidUser)).rejects.toThrow('Invalid email format')
+  })
+})`}
+/>
+
+## Test Organization
+
+### File Structure Best Practices
+
+<FileTree
+  title="Recommended Test Organization"
+  structure={{
+    "src/": {
+      "components/": {
+        "Button/": [
+          "Button.tsx",
+          "Button.test.tsx",
+          "Button.stories.tsx"
+        ]
+      },
+      "hooks/": {
+        "useAuth/": [
+          "useAuth.ts", 
+          "useAuth.test.ts"
+        ]
+      },
+      "utils/": [
+        "validation.ts",
+        "validation.test.ts"
+      ]
+    },
+    "tests/": {
+      "integration/": ["auth.test.ts", "api.test.ts"],
+      "e2e/": ["user-flows.spec.ts"],
+      "fixtures/": ["users.json", "posts.json"],
+      "helpers/": ["test-utils.ts", "mocks.ts"]
+    }
+  }}
+/>
+
+### Naming Conventions
+
+<ConventionGuide
+  title="Test Naming Patterns"
+  conventions={[
+    {
+      pattern: "describe('ComponentName', () => {})",
+      usage: "Group related tests for a component or module"
+    },
+    {
+      pattern: "test('should [expected behavior] when [condition]', () => {})",
+      usage: "Describe the expected outcome clearly"
+    },
+    {
+      pattern: "it.each([testCases])('should handle %s', (input, expected) => {})",
+      usage: "Test multiple scenarios with same logic"
+    }
+  ]}
+/>
+
+<CodeDemo
+  title="Good Test Naming Examples"
+  language="typescript"
+  runnable={true}
+  code={`describe('LoginForm', () => {
+  test('should display validation error when email is empty', () => {
+    // Test implementation
+  })
+
+  test('should submit form when all fields are valid', () => {
+    // Test implementation
+  })
+
+  test('should disable submit button while request is pending', () => {
+    // Test implementation
+  })
+
+  describe('password field', () => {
+    test('should toggle visibility when eye icon is clicked', () => {
+      // Test implementation
+    })
+
+    test('should show strength indicator for weak passwords', () => {
+      // Test implementation
+    })
+  })
+})`}
+/>
+
+## Mocking Strategies
+
+### When to Mock
+
+<DecisionTree
+  title="Mocking Decision Guide"
+  question="Should I mock this dependency?"
+  branches={[
+    {
+      condition: "External API or service",
+      result: "YES - Always mock external dependencies",
+      color: "#10b981"
+    },
+    {
+      condition: "Database operations",
+      result: "DEPENDS - Mock for unit tests, real DB for integration",
+      color: "#f59e0b"
+    },
+    {
+      condition: "Internal utility functions",
+      result: "NO - Test with real implementations",
+      color: "#ef4444"
+    },
+    {
+      condition: "Time-based operations",
+      result: "YES - Mock Date, timers for deterministic tests",
+      color: "#10b981"
+    }
+  ]}
+/>
+
+### Effective Mocking Patterns
+
+<TabbedCodeDemo
+  title="Mocking Best Practices"
+  tabs={[
+    {
+      label: "API Mocking",
+      language: "typescript",
+      code: `// ✅ Good: Realistic API mocking with MSW
+import { http, HttpResponse } from 'msw'
+
+export const handlers = [
+  http.get('/api/users/:id', ({ params }) => {
+    const { id } = params
+    
+    // Return realistic response structure
+    return HttpResponse.json({
+      id,
+      name: 'John Doe',
+      email: 'john@example.com',
+      avatar: \`https://api.dicebear.com/6.x/avataaars/svg?seed=\${id}\`,
+      createdAt: '2023-01-15T10:30:00Z',
+      lastActive: '2024-01-10T15:45:00Z'
+    })
+  }),
+
+  // Handle error scenarios
+  http.get('/api/users/404', () => {
+    return new HttpResponse(null, { 
+      status: 404,
+      statusText: 'User not found'
+    })
+  }),
+
+  // Simulate network delays
+  http.post('/api/users', async ({ request }) => {
+    await delay(500) // Simulate realistic API delay
+    const userData = await request.json()
+    
+    return HttpResponse.json({
+      ...userData,
+      id: Math.random().toString(36),
+      createdAt: new Date().toISOString()
+    }, { status: 201 })
+  })
+]`
+    },
+    {
+      label: "Component Mocking",
+      language: "typescript", 
+      code: `// ✅ Good: Mock heavy child components
+vi.mock('./ComplexChart', () => ({
+  ComplexChart: ({ data, title }: { data: any[], title: string }) => (
+    <div data-testid="mock-chart" data-title={title}>
+      Chart with {data.length} data points
+    </div>
+  )
+}))
+
+// ✅ Good: Mock hooks with realistic behavior
+vi.mock('../hooks/useAuth', () => ({
+  useAuth: vi.fn(() => ({
+    user: { id: '1', name: 'Test User' },
+    isAuthenticated: true,
+    login: vi.fn(),
+    logout: vi.fn()
+  }))
+}))
+
+// ❌ Bad: Over-mocking simple components
+vi.mock('./Button', () => ({
+  Button: ({ children }: { children: React.ReactNode }) => 
+    <button>{children}</button>
+})) // Just use the real Button component!`
+    },
+    {
+      label: "Service Mocking",
+      language: "typescript",
+      code: `// ✅ Good: Realistic service mocking
+class MockEmailService implements EmailService {
+  private sentEmails: Email[] = []
+
+  async sendEmail(to: string, subject: string, body: string): Promise<void> {
+    // Simulate realistic delays and failures
+    if (to.includes('invalid')) {
+      throw new Error('Invalid email address')
+    }
+    
+    await new Promise(resolve => setTimeout(resolve, 100))
+    
+    this.sentEmails.push({ to, subject, body, sentAt: new Date() })
+  }
+
+  getSentEmails(): Email[] {
+    return [...this.sentEmails]
+  }
+
+  clear(): void {
+    this.sentEmails = []
+  }
+}
+
+// Usage in tests
+beforeEach(() => {
+  mockEmailService.clear()
+})
+
+test('should send welcome email when user registers', async () => {
+  await userService.register('user@example.com', 'password')
+  
+  const sentEmails = mockEmailService.getSentEmails()
+  expect(sentEmails).toHaveLength(1)
+  expect(sentEmails[0].subject).toBe('Welcome to our platform!')
+})`
+    }
+  ]}
+/>
+
+## Performance Testing
+
+### Performance Budgets
+
+Set and monitor performance thresholds:
+
+<PerformanceBudget
+  title="Performance Thresholds"
+  metrics={[
+    { name: "First Contentful Paint", budget: 1.5, current: 1.2, unit: "s" },
+    { name: "Largest Contentful Paint", budget: 2.5, current: 2.1, unit: "s" },
+    { name: "Cumulative Layout Shift", budget: 0.1, current: 0.05, unit: "" },
+    { name: "Time to Interactive", budget: 3.0, current: 2.8, unit: "s" },
+    { name: "Bundle Size", budget: 250, current: 180, unit: "KB" }
+  ]}
+/>
+
+### Performance Testing Patterns
+
+<CodeDemo
+  title="Performance Test Examples"
+  language="typescript"
+  runnable={false}
+  code={`// Lighthouse performance testing
+test('homepage meets performance budget', async ({ page }) => {
+  await page.goto('/')
+  
+  const audit = await playAudit({
+    page,
+    thresholds: {
+      performance: 90,
+      accessibility: 95,
+      'best-practices': 90,
+      seo: 90
+    }
+  })
+  
+  expect(audit.lhr.categories.performance.score).toBeGreaterThan(0.9)
+})
+
+// Component rendering performance
+test('large list renders efficiently', async () => {
+  const startTime = performance.now()
+  
+  render(<ProductList products={generateProducts(1000)} />)
+  
+  const renderTime = performance.now() - startTime
+  expect(renderTime).toBeLessThan(100) // 100ms budget
+})
+
+// Memory leak detection
+test('component cleans up properly', () => {
+  const { unmount } = render(<TimerComponent />)
+  
+  const initialTimers = vi.getTimerCount()
+  unmount()
+  
+  expect(vi.getTimerCount()).toBe(initialTimers)
+})`}
+/>
+
+## Accessibility Testing
+
+### A11y Testing Checklist
+
+<AccessibilityChecklist
+  title="Accessibility Requirements"
+  items={[
+    { text: "All interactive elements are keyboard accessible", checked: true },
+    { text: "Images have meaningful alt text", checked: true },
+    { text: "Form inputs have proper labels", checked: true },
+    { text: "Color contrast meets WCAG AA standards", checked: true },
+    { text: "Screen reader announcements work correctly", checked: false },
+    { text: "Focus management in modals and overlays", checked: true },
+    { text: "Error messages are announced to screen readers", checked: false },
+    { text: "Dynamic content updates are announced", checked: false }
+  ]}
+/>
+
+### Accessibility Testing Patterns
+
+<CodeDemo
+  title="Accessibility Test Examples"
+  language="typescript"
+  runnable={false}
+  code={`import { render, screen } from '@testing-library/react'
+import { axe, toHaveNoViolations } from 'jest-axe'
+import userEvent from '@testing-library/user-event'
+
+expect.extend(toHaveNoViolations)
+
+test('form is accessible', async () => {
+  const { container } = render(<ContactForm />)
+  
+  // Automated accessibility testing
+  const results = await axe(container)
+  expect(results).toHaveNoViolations()
+})
+
+test('modal has proper focus management', async () => {
+  const user = userEvent.setup()
+  
+  render(<App />)
+  
+  // Open modal
+  await user.click(screen.getByRole('button', { name: /open modal/i }))
+  
+  // Focus should be trapped in modal
+  const modal = screen.getByRole('dialog')
+  expect(modal).toHaveFocus()
+  
+  // Test tab cycling
+  await user.tab()
+  expect(screen.getByRole('button', { name: /close/i })).toHaveFocus()
+  
+  // Escape should close modal
+  await user.keyboard('{Escape}')
+  expect(modal).not.toBeInTheDocument()
+})
+
+test('screen reader announcements work', async () => {
+  const user = userEvent.setup()
+  
+  render(<SearchForm />)
+  
+  await user.type(screen.getByRole('searchbox'), 'test query')
+  await user.click(screen.getByRole('button', { name: /search/i }))
+  
+  // Check for aria-live announcements
+  expect(screen.getByText(/searching for "test query"/i)).toBeInTheDocument()
+  
+  // Wait for results
+  await screen.findByText(/found 5 results/i)
+  expect(screen.getByText(/found 5 results/i)).toHaveAttribute('aria-live', 'polite')
+})`}
+/>
+
+## Error Handling
+
+### Error Testing Strategies
+
+Test both expected and unexpected error scenarios:
+
+<ErrorTestingGuide
+  title="Error Testing Patterns"
+  categories={[
+    {
+      name: "Validation Errors",
+      description: "User input validation failures",
+      examples: ["Invalid email format", "Password too short", "Required field missing"]
+    },
+    {
+      name: "Network Errors",
+      description: "API and connectivity issues",
+      examples: ["Request timeout", "Server error (500)", "No internet connection"]
+    },
+    {
+      name: "Business Logic Errors",
+      description: "Domain-specific error conditions", 
+      examples: ["Insufficient balance", "User not authorized", "Resource not found"]
+    },
+    {
+      name: "System Errors",
+      description: "Unexpected system failures",
+      examples: ["Out of memory", "Database connection lost", "External service down"]
+    }
+  ]}
+/>
+
+<CodeDemo
+  title="Comprehensive Error Testing"
+  language="typescript"
+  runnable={true}
+  code={`describe('PaymentService error handling', () => {
+  test('handles validation errors gracefully', async () => {
+    const invalidPayment = { amount: -10, currency: 'USD' }
+    
+    await expect(paymentService.processPayment(invalidPayment))
+      .rejects.toThrow('Amount must be positive')
+  })
+
+  test('retries on network failures', async () => {
+    // Mock temporary network failure
+    mockApi
+      .mockRejectedValueOnce(new Error('Network timeout'))
+      .mockRejectedValueOnce(new Error('Network timeout'))
+      .mockResolvedValueOnce({ success: true, transactionId: '123' })
+    
+    const result = await paymentService.processPayment(validPayment)
+    
+    expect(result.success).toBe(true)
+    expect(mockApi).toHaveBeenCalledTimes(3) // 2 retries + 1 success
+  })
+
+  test('handles insufficient funds error', async () => {
+    mockApi.mockRejectedValue({ 
+      status: 402, 
+      code: 'INSUFFICIENT_FUNDS',
+      message: 'Insufficient balance'
+    })
+    
+    const error = await expect(paymentService.processPayment(validPayment))
+      .rejects.toThrow()
+    
+    expect(error.code).toBe('INSUFFICIENT_FUNDS')
+    expect(error.userMessage).toBe('Please check your account balance and try again')
+  })
+})`}
+/>
+
+## Test Maintenance
+
+### Keeping Tests Current
+
+<MaintenanceStrategy
+  title="Test Maintenance Schedule"
+  tasks={[
+    {
+      frequency: "Daily",
+      tasks: ["Fix failing tests immediately", "Review test coverage in PRs"],
+      owner: "Developers"
+    },
+    {
+      frequency: "Weekly", 
+      tasks: ["Update test dependencies", "Review slow tests", "Clean up obsolete tests"],
+      owner: "Team Lead"
+    },
+    {
+      frequency: "Monthly",
+      tasks: ["Audit test coverage", "Update testing patterns", "Review performance budgets"],
+      owner: "QA Team"
+    },
+    {
+      frequency: "Quarterly",
+      tasks: ["Upgrade testing frameworks", "Review testing strategy", "Team training"],
+      owner: "Tech Lead"
+    }
+  ]}
+/>
+
+### Refactoring Tests
+
+<CodeDemo
+  title="Test Refactoring Example"
+  language="typescript"
+  runnable={true}
+  code={`// ❌ Before: Repetitive, hard to maintain
+test('admin can create user', async () => {
+  const admin = { id: '1', role: 'admin', email: 'admin@test.com' }
+  const headers = { Authorization: \`Bearer \${generateToken(admin)}\` }
+  const userData = { email: 'new@test.com', name: 'New User' }
+  
+  const response = await request(app)
+    .post('/api/users')
+    .set(headers)
+    .send(userData)
+    
+  expect(response.status).toBe(201)
+  expect(response.body.email).toBe(userData.email)
+})
+
+test('user cannot create user', async () => {
+  const user = { id: '2', role: 'user', email: 'user@test.com' }
+  const headers = { Authorization: \`Bearer \${generateToken(user)}\` }
+  const userData = { email: 'new@test.com', name: 'New User' }
+  
+  const response = await request(app)
+    .post('/api/users')
+    .set(headers)
+    .send(userData)
+    
+  expect(response.status).toBe(403)
+})
+
+// ✅ After: DRY, maintainable
+describe('POST /api/users', () => {
+  const userData = { email: 'new@test.com', name: 'New User' }
+  
+  test.each([
+    ['admin', 201, 'can create users'],
+    ['user', 403, 'cannot create users'],
+    ['guest', 401, 'must be authenticated']
+  ])('%s %s - %s', async (role, expectedStatus) => {
+    const actor = createTestUser({ role })
+    const response = await apiRequest
+      .post('/api/users')
+      .authenticatedAs(actor)
+      .send(userData)
+      
+    expect(response.status).toBe(expectedStatus)
+    
+    if (expectedStatus === 201) {
+      expect(response.body.email).toBe(userData.email)
+    }
+  })
+})`}
+/>
+
+## Common Anti-Patterns
+
+### What to Avoid
+
+<AntiPatternGuide
+  title="Testing Anti-Patterns to Avoid"
+  patterns={[
+    {
+      name: "Testing Implementation Details",
+      bad: "expect(component.state.isLoading).toBe(true)",
+      good: "expect(screen.getByText('Loading...')).toBeInTheDocument()",
+      why: "Tests should focus on user-observable behavior"
+    },
+    {
+      name: "Overly Complex Tests",
+      bad: "One test that checks 10 different scenarios",
+      good: "10 focused tests, each checking one scenario",
+      why: "Simple tests are easier to debug and maintain"
+    },
+    {
+      name: "Testing Dependencies",
+      bad: "Testing that a library function works correctly",
+      good: "Testing that your code uses the library correctly",
+      why: "Trust that dependencies work, test your integration"
+    },
+    {
+      name: "Fragile Selectors",
+      bad: "page.locator('.css-class-name-123')",
+      good: "page.getByRole('button', { name: 'Submit' })",
+      why: "Semantic selectors are more stable and accessible"
+    }
+  ]}
+/>
+
+## Team Practices
+
+### Code Review Guidelines
+
+<ReviewChecklist
+  title="Test Code Review Checklist"
+  sections={[
+    {
+      title: "Test Quality",
+      items: [
+        "Tests are focused and test one thing",
+        "Test names clearly describe the scenario",
+        "Tests use realistic test data",
+        "Error scenarios are covered"
+      ]
+    },
+    {
+      title: "Test Coverage",
+      items: [
+        "New features have corresponding tests",
+        "Edge cases are covered",
+        "Coverage thresholds are met",
+        "Tests are not overly specific to implementation"
+      ]
+    },
+    {
+      title: "Test Maintainability",
+      items: [
+        "Tests are easy to understand",
+        "Common test utilities are reused",
+        "Tests don't duplicate existing coverage",
+        "Tests will be easy to update when code changes"
+      ]
+    }
+  ]}
+/>
+
+### Documentation Standards
+
+Document your testing approach:
+
+<CodeDemo
+  title="Test Documentation Example"
+  language="typescript"
+  runnable={false}
+  code={`/**
+ * Authentication Integration Tests
+ * 
+ * These tests verify the complete authentication flow including:
+ * - User registration with email verification
+ * - Login with various credential types (email/username)
+ * - Password reset functionality
+ * - JWT token refresh mechanism
+ * - Session management and logout
+ * 
+ * Test Data:
+ * - Uses realistic user data from fixtures/users.json
+ * - Email service is mocked using MockEmailService
+ * - Database is reset between tests using transaction rollback
+ * 
+ * Environment:
+ * - Requires TEST_DATABASE_URL to be set
+ * - Uses in-memory Redis for session storage
+ * - SMTP service is mocked, no real emails sent
+ */
+
+describe('Authentication Flow', () => {
+  // Test implementation...
+})`}
+/>
+
+## Next Steps
+
+- **[CI/CD Integration](/ci-cd)** - Automate your testing pipeline
+- **[Templates](/templates)** - Use pre-configured test templates
+- **[Examples](/examples)** - See complete testing examples

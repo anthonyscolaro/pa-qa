@@ -1,0 +1,205 @@
+---
+title: "Getting Started with PA-QA"
+description: "Learn how to set up and use the PA-QA testing framework in your projects"
+category: "basics"
+order: 1
+---
+
+# Getting Started with PA-QA
+
+Welcome to the PA-QA Testing Framework! This guide will help you quickly set up comprehensive testing for your web development projects.
+
+## What is PA-QA?
+
+PA-QA is a multi-agent testing framework that provides standardized testing templates, shared utilities, and best practices for modern web development. It supports React, WordPress, FastAPI, and more.
+
+<CodeDemo 
+  title="Quick Setup Example"
+  language="bash"
+  code={`# Clone a project template
+git clone https://github.com/your-agency/pa-qa-templates.git
+cd pa-qa-templates/project-types/web-apps/react
+
+# Install dependencies
+npm install
+
+# Run all tests
+npm run test:all
+
+# View coverage report
+npm run test:coverage`}
+/>
+
+## Key Features
+
+- **Multi-Agent Workflows**: Generate complete test suites in minutes using parallel agent execution
+- **Framework Support**: React, WordPress, FastAPI, and more
+- **Docker-First**: Consistent testing environments across development and CI/CD
+- **Allure Integration**: Centralized reporting dashboard
+- **Modern Tooling**: Vitest, Playwright, PHPUnit 9.x, Pytest 7.x
+
+## Quick Start
+
+### 1. Choose Your Project Type
+
+<InteractiveSelector
+  title="Select your project type"
+  options={[
+    { label: "React Web App", value: "react", description: "Modern React applications with TypeScript" },
+    { label: "WordPress Plugin", value: "wordpress", description: "WordPress plugins and themes" },
+    { label: "FastAPI Service", value: "fastapi", description: "Python REST APIs with FastAPI" }
+  ]}
+  onSelect={(value) => {
+    // This would trigger navigation or show relevant setup instructions
+    console.log(`Selected: ${value}`)
+  }}
+/>
+
+### 2. Copy Template Files
+
+Once you've selected your project type, copy the relevant template files:
+
+<CodeDemo
+  title="React Project Setup"
+  language="bash"
+  code={`# Copy React testing template
+cp -r pa-qa/project-types/web-apps/react/tests/ ./
+cp -r pa-qa/project-types/web-apps/react/configs/ ./
+cp pa-qa/project-types/web-apps/react/package.json ./package-pa-qa.json
+
+# Install testing dependencies
+npm install --save-dev $(cat package-pa-qa.json | jq -r '.devDependencies | keys[]')`}
+  runnable={false}
+/>
+
+### 3. Configure Your Environment
+
+<TabbedCodeDemo
+  title="Configuration Files"
+  tabs={[
+    {
+      label: "vitest.config.ts",
+      language: "typescript",
+      code: `import { defineConfig } from 'vitest/config'
+import react from '@vitejs/plugin-react'
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./tests/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      thresholds: {
+        global: {
+          branches: 80,
+          functions: 80,
+          lines: 80,
+          statements: 80
+        }
+      }
+    }
+  }
+})`
+    },
+    {
+      label: "playwright.config.ts",
+      language: "typescript", 
+      code: `import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  testDir: './tests/e2e',
+  fullyParallel: true,
+  forbidOnly: !!process.env.CI,
+  retries: process.env.CI ? 2 : 0,
+  workers: process.env.CI ? 1 : undefined,
+  reporter: [
+    ['html'],
+    ['allure-playwright', { outputFolder: 'allure-results' }]
+  ],
+  use: {
+    baseURL: 'http://localhost:3000',
+    trace: 'on-first-retry',
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
+})`
+    }
+  ]}
+/>
+
+### 4. Run Your First Tests
+
+<TestRunner
+  title="Execute Test Suite"
+  tests={[
+    {
+      name: "Unit Tests",
+      command: "npm run test:unit",
+      description: "Fast component and utility tests"
+    },
+    {
+      name: "Integration Tests", 
+      command: "npm run test:integration",
+      description: "API and service integration tests"
+    },
+    {
+      name: "E2E Tests",
+      command: "npm run test:e2e", 
+      description: "Full user journey tests"
+    }
+  ]}
+  onRun={(testName) => {
+    // Simulate test execution
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        resolve({
+          status: 'passed',
+          duration: Math.random() * 2000 + 500,
+          coverage: Math.random() * 20 + 80
+        })
+      }, 1000)
+    })
+  }}
+/>
+
+## Multi-Agent Workflow
+
+PA-QA uses multi-agent workflows to generate comprehensive test suites rapidly:
+
+<WorkflowDiagram
+  title="Test Generation Workflow"
+  agents={[
+    { name: "Research Agent", task: "Analyze codebase patterns", duration: "30s" },
+    { name: "Unit Test Agent", task: "Generate component tests", duration: "2m" },
+    { name: "E2E Agent", task: "Create user journey tests", duration: "3m" },
+    { name: "Performance Agent", task: "Build performance tests", duration: "2m" },
+    { name: "Validation Agent", task: "Ensure quality standards", duration: "1m" }
+  ]}
+  parallel={true}
+/>
+
+## Next Steps
+
+1. **[Testing Patterns](/testing-patterns)** - Learn about different testing strategies
+2. **[Utilities Guide](/utilities)** - Explore shared testing utilities
+3. **[Best Practices](/best-practices)** - Follow our recommended approaches
+4. **[CI/CD Integration](/ci-cd)** - Set up automated testing pipelines
+
+<CallToAction
+  title="Ready to start testing?"
+  description="Choose a template and get your test suite running in minutes"
+  primaryAction={{
+    label: "Browse Templates",
+    href: "/templates"
+  }}
+  secondaryAction={{
+    label: "View Examples",
+    href: "/examples"
+  }}
+/>

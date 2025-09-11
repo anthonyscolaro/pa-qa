@@ -1,0 +1,358 @@
+name: Update MDX Documentation
+
+on:
+  push:
+    branches: [main, develop, staging]
+    paths:
+      - 'project-types/**'
+      - 'shared/**'
+      - 'docs/requirements/**'
+  pull_request:
+    branches: [main, develop, staging]
+    paths:
+      - 'project-types/**'
+      - 'shared/**'
+      - 'docs/requirements/**'
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  detect-changes:
+    name: Detect Framework Changes
+    runs-on: ubuntu-latest
+    outputs:
+      docs-update-needed: ${{ steps.check-changes.outputs.needs-update }}
+      changed-areas: ${{ steps.check-changes.outputs.changed-areas }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      
+      - name: Check for documentation-impacting changes
+        id: check-changes
+        run: |
+          # Get list of changed files
+          changed_files=$(git diff --name-only HEAD~1 HEAD)
+          echo "Changed files: $changed_files"
+          
+          # Initialize tracking variables
+          needs_update=false
+          changed_areas=""
+          
+          # Check for changes that require MDX updates
+          if echo "$changed_files" | grep -q "^project-types/.*\.\(ts\|tsx\|js\|jsx\|py\|php\|test\.\|spec\.\)"; then
+            needs_update=true
+            changed_areas="${changed_areas},templates"
+          fi
+          
+          if echo "$changed_files" | grep -q "^shared/testing-utilities/"; then
+            needs_update=true
+            changed_areas="${changed_areas},utilities"
+          fi
+          
+          if echo "$changed_files" | grep -q "^shared/ci-cd-templates/"; then
+            needs_update=true
+            changed_areas="${changed_areas},ci-cd"
+          fi
+          
+          if echo "$changed_files" | grep -q "^shared/linting-configs/"; then
+            needs_update=true
+            changed_areas="${changed_areas},best-practices"
+          fi
+          
+          if echo "$changed_files" | grep -q "^docs/requirements/"; then
+            needs_update=true
+            changed_areas="${changed_areas},getting-started"
+          fi
+          
+          # Clean up leading comma
+          changed_areas=$(echo "$changed_areas" | sed 's/^,//')
+          
+          echo "needs-update=$needs_update" >> $GITHUB_OUTPUT
+          echo "changed-areas=$changed_areas" >> $GITHUB_OUTPUT
+          echo "Documentation update needed: $needs_update"
+          echo "Changed areas: $changed_areas"
+
+  update-mdx-docs:
+    name: Update MDX Documentation
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: needs.detect-changes.outputs.docs-update-needed == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: 'examples/pa-qa-showcase/package-lock.json'
+      
+      - name: Install dependencies
+        working-directory: examples/pa-qa-showcase
+        run: npm ci
+      
+      - name: Generate updated documentation
+        working-directory: examples/pa-qa-showcase
+        env:
+          CHANGED_AREAS: ${{ needs.detect-changes.outputs.changed-areas }}
+        run: |
+          # Create documentation update script
+          cat > scripts/update-docs.js << 'EOF'
+          const fs = require('fs');
+          const path = require('path');
+          const { execSync } = require('child_process');
+          
+          const changedAreas = process.env.CHANGED_AREAS.split(',');
+          const contentDir = path.join(__dirname, '..', 'content');
+          
+          console.log('Updating MDX documentation for areas:', changedAreas);
+          
+          // Function to scan project-types for new templates
+          function scanProjectTypes() {
+            const projectTypesDir = path.join(__dirname, '..', '..', 'project-types');
+            const templates = [];
+            
+            if (fs.existsSync(projectTypesDir)) {
+              const categories = fs.readdirSync(projectTypesDir);
+              categories.forEach(category => {
+                const categoryPath = path.join(projectTypesDir, category);
+                if (fs.statSync(categoryPath).isDirectory()) {
+                  const frameworks = fs.readdirSync(categoryPath);
+                  frameworks.forEach(framework => {
+                    const frameworkPath = path.join(categoryPath, framework);
+                    if (fs.statSync(frameworkPath).isDirectory()) {
+                      templates.push({
+                        category,
+                        framework,
+                        path: `project-types/${category}/${framework}`,
+                        hasTests: fs.existsSync(path.join(frameworkPath, 'tests')),
+                        hasConfigs: fs.existsSync(path.join(frameworkPath, 'configs')),
+                        hasDockerfiles: fs.existsSync(path.join(frameworkPath, 'docker'))
+                      });
+                    }
+                  });
+                }
+              });
+            }
+            
+            return templates;
+          }
+          
+          // Function to scan utilities
+          function scanUtilities() {
+            const utilitiesDir = path.join(__dirname, '..', '..', 'shared', 'testing-utilities');
+            const utilities = [];
+            
+            if (fs.existsSync(utilitiesDir)) {
+              const helpersDir = path.join(utilitiesDir, 'helpers');
+              if (fs.existsSync(helpersDir)) {
+                const categories = fs.readdirSync(helpersDir);
+                categories.forEach(category => {
+                  const categoryPath = path.join(helpersDir, category);
+                  if (fs.statSync(categoryPath).isDirectory()) {
+                    const files = fs.readdirSync(categoryPath);
+                    utilities.push({
+                      category,
+                      files: files.filter(f => f.endsWith('.ts') || f.endsWith('.tsx') || f.endsWith('.js') || f.endsWith('.jsx')),
+                      path: `shared/testing-utilities/helpers/${category}`
+                    });
+                  }
+                });
+              }
+            }
+            
+            return utilities;
+          }
+          
+          // Update getting-started.mdx with latest templates
+          if (changedAreas.includes('templates') || changedAreas.includes('getting-started')) {
+            const templates = scanProjectTypes();
+            const gettingStartedPath = path.join(contentDir, 'getting-started.mdx');
+            
+            if (fs.existsSync(gettingStartedPath)) {
+              let content = fs.readFileSync(gettingStartedPath, 'utf8');
+              
+              // Update template selector options
+              const templateOptions = templates.map(t => ({
+                label: `${t.framework.charAt(0).toUpperCase() + t.framework.slice(1)} (${t.category})`,
+                value: `${t.category}-${t.framework}`,
+                description: `${t.framework} project in ${t.category} category`
+              }));
+              
+              // Find and replace the InteractiveSelector options
+              const selectorRegex = /(options=\{)\[[\s\S]*?\](\})/;
+              if (selectorRegex.test(content)) {
+                const newOptions = JSON.stringify(templateOptions, null, 8).replace(/"/g, '"');
+                content = content.replace(selectorRegex, `$1${newOptions}$2`);
+                fs.writeFileSync(gettingStartedPath, content);
+                console.log('Updated getting-started.mdx with latest templates');
+              }
+            }
+          }
+          
+          // Update utilities.mdx with latest helpers
+          if (changedAreas.includes('utilities')) {
+            const utilities = scanUtilities();
+            const utilitiesPath = path.join(contentDir, 'utilities.mdx');
+            
+            if (fs.existsSync(utilitiesPath)) {
+              let content = fs.readFileSync(utilitiesPath, 'utf8');
+              
+              // Add timestamp comment to track updates
+              const timestamp = new Date().toISOString();
+              const updateComment = `<!-- Auto-updated: ${timestamp} -->`;
+              
+              if (!content.includes('<!-- Auto-updated:')) {
+                content = updateComment + '\n' + content;
+              } else {
+                content = content.replace(/<!-- Auto-updated:.*? -->/, updateComment);
+              }
+              
+              fs.writeFileSync(utilitiesPath, content);
+              console.log('Updated utilities.mdx with latest helpers');
+            }
+          }
+          
+          // Update ci-cd.mdx with latest templates
+          if (changedAreas.includes('ci-cd')) {
+            const cicdPath = path.join(contentDir, 'ci-cd.mdx');
+            
+            if (fs.existsSync(cicdPath)) {
+              let content = fs.readFileSync(cicdPath, 'utf8');
+              
+              // Add timestamp comment
+              const timestamp = new Date().toISOString();
+              const updateComment = `<!-- Auto-updated: ${timestamp} -->`;
+              
+              if (!content.includes('<!-- Auto-updated:')) {
+                content = updateComment + '\n' + content;
+              } else {
+                content = content.replace(/<!-- Auto-updated:.*? -->/, updateComment);
+              }
+              
+              fs.writeFileSync(cicdPath, content);
+              console.log('Updated ci-cd.mdx with latest CI/CD templates');
+            }
+          }
+          
+          console.log('Documentation update completed');
+          EOF
+          
+          # Run the documentation update script
+          node scripts/update-docs.js
+      
+      - name: Check for MDX content changes
+        id: check-mdx-changes
+        run: |
+          if git diff --quiet HEAD -- examples/pa-qa-showcase/content/; then
+            echo "changes-detected=false" >> $GITHUB_OUTPUT
+          else
+            echo "changes-detected=true" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Validate updated MDX files
+        if: steps.check-mdx-changes.outputs.changes-detected == 'true'
+        working-directory: examples/pa-qa-showcase
+        run: |
+          # Check MDX syntax
+          npm run build:check || {
+            echo "MDX validation failed"
+            exit 1
+          }
+      
+      - name: Commit documentation updates
+        if: steps.check-mdx-changes.outputs.changes-detected == 'true'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add examples/pa-qa-showcase/content/
+          git commit -m "📝 Auto-update MDX documentation based on framework changes
+
+          Updated areas: ${{ needs.detect-changes.outputs.changed-areas }}
+          
+          🤖 Generated with PA-QA Auto-Documentation
+          
+          Co-Authored-By: PA-QA Bot <noreply@pa-qa.dev>"
+      
+      - name: Push documentation updates
+        if: steps.check-mdx-changes.outputs.changes-detected == 'true'
+        run: |
+          git push origin ${{ github.head_ref || github.ref_name }}
+      
+      - name: Create issue for manual review
+        if: steps.check-mdx-changes.outputs.changes-detected == 'true' && github.event_name == 'push'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changedAreas = "${{ needs.detect-changes.outputs.changed-areas }}";
+            const issueTitle = `📝 Review Auto-Updated MDX Documentation`;
+            const issueBody = `
+            ## Automatic Documentation Update
+            
+            The PA-QA framework files have been updated, and the MDX documentation has been automatically synchronized.
+            
+            **Changed Areas:** ${changedAreas}
+            **Commit:** ${{ github.sha }}
+            **Branch:** ${{ github.ref_name }}
+            
+            ## What was updated:
+            
+            ${changedAreas.split(',').map(area => `- **${area.charAt(0).toUpperCase() + area.slice(1)}** documentation section`).join('\n')}
+            
+            ## Action Required:
+            
+            - [ ] Review the updated MDX content in \`examples/pa-qa-showcase/content/\`
+            - [ ] Verify examples and code snippets are accurate
+            - [ ] Test the showcase application locally
+            - [ ] Update any custom interactive components if needed
+            
+            ## Testing:
+            
+            \`\`\`bash
+            cd examples/pa-qa-showcase
+            npm install
+            npm run dev
+            \`\`\`
+            
+            Then navigate to http://localhost:3000 and verify the updated documentation.
+            
+            ---
+            
+            🤖 This issue was automatically created by the PA-QA documentation sync workflow.
+            `;
+            
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: issueTitle,
+              body: issueBody,
+              labels: ['documentation', 'auto-generated', 'review-needed']
+            });
+
+  notify-completion:
+    name: Notify Documentation Update
+    runs-on: ubuntu-latest
+    needs: [detect-changes, update-mdx-docs]
+    if: always() && needs.detect-changes.outputs.docs-update-needed == 'true'
+    
+    steps:
+      - name: Notify success
+        if: needs.update-mdx-docs.result == 'success'
+        run: |
+          echo "✅ MDX documentation successfully updated for areas: ${{ needs.detect-changes.outputs.changed-areas }}"
+      
+      - name: Notify failure
+        if: needs.update-mdx-docs.result == 'failure'
+        run: |
+          echo "❌ MDX documentation update failed for areas: ${{ needs.detect-changes.outputs.changed-areas }}"
+          echo "Manual intervention required to sync documentation with framework changes."
+          exit 1

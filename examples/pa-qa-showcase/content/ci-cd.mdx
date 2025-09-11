@@ -1,0 +1,1105 @@
+---
+title: "CI/CD Integration"
+description: "Set up automated testing pipelines with GitHub Actions, GitLab CI, and other platforms"
+category: "automation"
+order: 5
+---
+
+# CI/CD Integration
+
+Automate your testing workflow with robust CI/CD pipelines that ensure code quality and catch issues early.
+
+## Platform Support
+
+PA-QA provides ready-to-use templates for major CI/CD platforms:
+
+<PlatformGrid
+  title="Supported CI/CD Platforms"
+  platforms={[
+    {
+      name: "GitHub Actions",
+      logo: "/icons/github.svg",
+      description: "Native GitHub integration with matrix builds",
+      popularity: 95,
+      features: ["Matrix testing", "Artifact storage", "Built-in security"]
+    },
+    {
+      name: "GitLab CI",
+      logo: "/icons/gitlab.svg", 
+      description: "Self-hosted and cloud GitLab pipelines",
+      popularity: 80,
+      features: ["Docker support", "Parallel jobs", "Review apps"]
+    },
+    {
+      name: "Bitbucket Pipelines",
+      logo: "/icons/bitbucket.svg",
+      description: "Atlassian ecosystem integration",
+      popularity: 60,
+      features: ["Pipe marketplace", "Deployment tracking", "Build insights"]
+    },
+    {
+      name: "Jenkins",
+      logo: "/icons/jenkins.svg",
+      description: "Self-hosted with extensive plugin ecosystem",
+      popularity: 70,
+      features: ["Plugin ecosystem", "Custom environments", "Blue Ocean UI"]
+    }
+  ]}
+/>
+
+## GitHub Actions Workflows
+
+### React Application Pipeline
+
+<CodeDemo
+  title="React Testing Workflow"
+  language="yaml"
+  runnable={false}
+  code={`# .github/workflows/react-test.yml
+name: React Test Suite
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_OPTIONS: --max-old-space-size=4096
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18, 20, 21]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: \${{ matrix.node-version }}
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: npm ci
+        
+      - name: Run linting
+        run: npm run lint
+        
+      - name: Run type checking
+        run: npm run type-check
+        
+      - name: Run unit tests
+        run: npm run test:unit -- --coverage
+        
+      - name: Run integration tests
+        run: npm run test:integration
+        
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps
+        
+      - name: Run E2E tests
+        run: npm run test:e2e
+        
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results-node-\${{ matrix.node-version }}
+          path: |
+            coverage/
+            test-results/
+            playwright-report/
+            
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage/lcov.info
+          flags: unittests
+          name: codecov-umbrella
+          
+  allure-report:
+    name: Generate Allure Report
+    runs-on: ubuntu-latest
+    needs: test
+    if: always()
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Download test results
+        uses: actions/download-artifact@v4
+        with:
+          pattern: test-results-*
+          merge-multiple: true
+          path: allure-results/
+          
+      - name: Generate Allure report
+        uses: simple-elf/allure-report-action@master
+        with:
+          allure_results: allure-results
+          allure_report: allure-report
+          
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: \${{ secrets.GITHUB_TOKEN }}
+          publish_dir: allure-report`}
+/>
+
+### FastAPI Service Pipeline
+
+<CodeDemo
+  title="FastAPI Testing Workflow"
+  language="yaml"
+  runnable={false}
+  code={`# .github/workflows/fastapi-test.yml
+name: FastAPI Test Suite
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+          
+      redis:
+        image: redis:7
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+    
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: \${{ matrix.python-version }}
+          
+      - name: Install Poetry
+        uses: snok/install-poetry@v1
+        with:
+          version: latest
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+          
+      - name: Load cached venv
+        id: cached-poetry-dependencies
+        uses: actions/cache@v3
+        with:
+          path: .venv
+          key: venv-\${{ runner.os }}-\${{ matrix.python-version }}-\${{ hashFiles('**/poetry.lock') }}
+          
+      - name: Install dependencies
+        if: steps.cached-poetry-dependencies.outputs.cache-hit != 'true'
+        run: poetry install --no-interaction --no-root
+        
+      - name: Install project
+        run: poetry install --no-interaction
+        
+      - name: Run linting
+        run: |
+          poetry run ruff check .
+          poetry run black --check .
+          poetry run isort --check-only .
+          
+      - name: Run type checking
+        run: poetry run mypy .
+        
+      - name: Run security scan
+        run: poetry run bandit -r app/
+        
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://testuser:testpass@localhost:5432/testdb
+          REDIS_URL: redis://localhost:6379
+          ENVIRONMENT: testing
+        run: |
+          poetry run pytest \
+            --cov=app \
+            --cov-report=xml \
+            --cov-report=html \
+            --junitxml=junit.xml \
+            -v
+            
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'`}
+/>
+
+### WordPress Plugin Pipeline
+
+<CodeDemo
+  title="WordPress Testing Workflow"
+  language="yaml"
+  runnable={false}
+  code={`# .github/workflows/wordpress-test.yml
+name: WordPress Plugin Test Suite
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: wordpress_test
+          MYSQL_USER: wp_test
+          MYSQL_PASSWORD: wp_test
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+        ports:
+          - 3306:3306
+    
+    strategy:
+      matrix:
+        php-version: ["7.4", "8.0", "8.1", "8.2"]
+        wordpress-version: ["6.3", "6.4", "latest"]
+        
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: \${{ matrix.php-version }}
+          extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, mysql, mysqli, pdo_mysql
+          coverage: xdebug
+          
+      - name: Cache Composer packages
+        id: composer-cache
+        uses: actions/cache@v3
+        with:
+          path: vendor
+          key: \${{ runner.os }}-php-\${{ matrix.php-version }}-\${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            \${{ runner.os }}-php-\${{ matrix.php-version }}-
+            
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress
+        
+      - name: Setup WordPress test environment
+        run: |
+          bash bin/install-wp-tests.sh wordpress_test wp_test wp_test 127.0.0.1:\${{ job.services.mysql.ports[3306] }} \${{ matrix.wordpress-version }}
+          
+      - name: Run PHP CodeSniffer
+        run: vendor/bin/phpcs
+        
+      - name: Run PHPStan
+        run: vendor/bin/phpstan analyse
+        
+      - name: Run PHPUnit tests
+        run: |
+          vendor/bin/phpunit \
+            --coverage-clover=coverage.xml \
+            --coverage-html=coverage-html \
+            --log-junit=junit.xml
+            
+      - name: Run WordPress coding standards
+        run: vendor/bin/phpcs --standard=WordPress
+        
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella`}
+/>
+
+## Pipeline Optimization
+
+### Parallel Test Execution
+
+Speed up your pipeline by running tests in parallel:
+
+<ParallelExecutionDiagram
+  title="Test Parallelization Strategy"
+  stages={[
+    {
+      name: "Preparation",
+      duration: "2m",
+      jobs: ["Checkout", "Install deps", "Cache setup"],
+      parallel: false
+    },
+    {
+      name: "Code Quality",
+      duration: "1m", 
+      jobs: ["Linting", "Type check", "Format check"],
+      parallel: true
+    },
+    {
+      name: "Testing",
+      duration: "5m",
+      jobs: ["Unit tests", "Integration tests", "E2E tests"],
+      parallel: true
+    },
+    {
+      name: "Reporting",
+      duration: "2m",
+      jobs: ["Coverage", "Allure report", "Artifact upload"],
+      parallel: false
+    }
+  ]}
+/>
+
+<CodeDemo
+  title="Matrix Testing Configuration"
+  language="yaml"
+  runnable={false}
+  code={`# Parallel testing across multiple dimensions
+strategy:
+  fail-fast: false
+  matrix:
+    include:
+      # Unit tests across Node versions
+      - name: "Unit Tests - Node 18"
+        node-version: 18
+        test-command: "npm run test:unit"
+        
+      - name: "Unit Tests - Node 20"
+        node-version: 20
+        test-command: "npm run test:unit"
+        
+      # E2E tests across browsers
+      - name: "E2E Tests - Chrome"
+        node-version: 20
+        test-command: "npm run test:e2e -- --project=chromium"
+        
+      - name: "E2E Tests - Firefox"
+        node-version: 20
+        test-command: "npm run test:e2e -- --project=firefox"
+        
+      - name: "E2E Tests - Safari"
+        node-version: 20
+        test-command: "npm run test:e2e -- --project=webkit"
+        
+# Conditional test execution
+- name: Run tests
+  run: \${{ matrix.test-command }}
+  env:
+    CI: true
+    NODE_ENV: test`}
+/>
+
+### Caching Strategies
+
+Optimize build times with intelligent caching:
+
+<CachingStrategy
+  title="CI/CD Caching Optimization"
+  layers={[
+    {
+      name: "Dependencies",
+      description: "npm/yarn/poetry cache",
+      duration: "5-10 min saved",
+      hitRate: 85
+    },
+    {
+      name: "Docker Layers", 
+      description: "Intermediate build layers",
+      duration: "3-8 min saved",
+      hitRate: 70
+    },
+    {
+      name: "Test Results",
+      description: "Incremental test execution",
+      duration: "2-5 min saved", 
+      hitRate: 60
+    },
+    {
+      name: "Build Artifacts",
+      description: "Compiled assets and bundles",
+      duration: "1-3 min saved",
+      hitRate: 90
+    }
+  ]}
+/>
+
+<CodeDemo
+  title="Advanced Caching Configuration"
+  language="yaml"
+  runnable={false}
+  code={`# Multi-layer caching strategy
+- name: Cache dependencies
+  uses: actions/cache@v3
+  with:
+    path: |
+      ~/.npm
+      ~/.cache/pip
+      ~/.cache/pre-commit
+      node_modules
+      .venv
+    key: deps-\${{ runner.os }}-\${{ hashFiles('**/package-lock.json', '**/poetry.lock') }}
+    restore-keys: |
+      deps-\${{ runner.os }}-
+      
+- name: Cache Playwright browsers
+  uses: actions/cache@v3
+  with:
+    path: ~/.cache/ms-playwright
+    key: playwright-\${{ hashFiles('**/package-lock.json') }}
+    
+- name: Cache test results
+  uses: actions/cache@v3
+  with:
+    path: |
+      .jest-cache
+      .vitest/cache
+      .pytest_cache
+    key: test-cache-\${{ github.sha }}
+    restore-keys: |
+      test-cache-
+      
+# Conditional cache restoration
+- name: Restore build cache
+  if: github.event_name == 'pull_request'
+  uses: actions/cache@v3
+  with:
+    path: .next/cache
+    key: build-cache-\${{ github.head_ref }}-\${{ github.sha }}
+    restore-keys: |
+      build-cache-\${{ github.head_ref }}-
+      build-cache-main-`}
+/>
+
+## Quality Gates
+
+### Coverage Requirements
+
+Enforce minimum coverage thresholds:
+
+<QualityGate
+  title="Quality Gate Configuration"
+  gates={[
+    {
+      metric: "Line Coverage",
+      threshold: 80,
+      current: 85,
+      status: "pass",
+      blocking: true
+    },
+    {
+      metric: "Branch Coverage", 
+      threshold: 70,
+      current: 75,
+      status: "pass",
+      blocking: true
+    },
+    {
+      metric: "Performance Score",
+      threshold: 90,
+      current: 92,
+      status: "pass",
+      blocking: false
+    },
+    {
+      metric: "Security Vulnerabilities",
+      threshold: 0,
+      current: 1,
+      status: "fail",
+      blocking: true
+    }
+  ]}
+/>
+
+<CodeDemo
+  title="Quality Gate Implementation"
+  language="yaml"
+  runnable={false}
+  code={`# Quality gate job that blocks deployment
+quality-gate:
+  name: Quality Gate
+  runs-on: ubuntu-latest
+  needs: [test, security, performance]
+  
+  steps:
+    - name: Download test results
+      uses: actions/download-artifact@v4
+      with:
+        name: test-results
+        
+    - name: Check coverage threshold
+      run: |
+        coverage=$(cat coverage/coverage-summary.json | jq '.total.lines.pct')
+        if (( \$(echo "$coverage < 80" | bc -l) )); then
+          echo "Coverage $coverage% is below 80% threshold"
+          exit 1
+        fi
+        
+    - name: Check performance budget
+      run: |
+        lcp=$(cat lighthouse-results.json | jq '.lhr.audits["largest-contentful-paint"].numericValue')
+        if (( \$(echo "$lcp > 2500" | bc -l) )); then
+          echo "LCP $lcp ms exceeds 2500ms budget"
+          exit 1
+        fi
+        
+    - name: Check security vulnerabilities
+      run: |
+        vulns=$(cat security-report.json | jq '.vulnerabilities | length')
+        if [ "$vulns" -gt 0 ]; then
+          echo "Found $vulns security vulnerabilities"
+          exit 1
+        fi
+        
+    - name: Quality gate passed
+      run: echo "All quality checks passed ✅"`}
+/>
+
+## Deployment Integration
+
+### Continuous Deployment
+
+Automate deployments after successful testing:
+
+<DeploymentPipeline
+  title="Deployment Workflow"
+  environments={[
+    {
+      name: "Development",
+      trigger: "push to develop",
+      tests: ["unit", "integration"],
+      approval: false,
+      duration: "5m"
+    },
+    {
+      name: "Staging", 
+      trigger: "push to main",
+      tests: ["all tests", "e2e", "performance"],
+      approval: false,
+      duration: "15m"
+    },
+    {
+      name: "Production",
+      trigger: "manual or release tag",
+      tests: ["smoke tests"],
+      approval: true,
+      duration: "10m"
+    }
+  ]}
+/>
+
+<CodeDemo
+  title="Deployment Pipeline Configuration"
+  language="yaml"
+  runnable={false}
+  code={`# Deployment workflow
+deploy:
+  name: Deploy to \${{ github.ref_name }}
+  runs-on: ubuntu-latest
+  needs: [test, quality-gate]
+  if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+  
+  environment:
+    name: \${{ github.ref_name == 'refs/heads/main' && 'production' || 'staging' }}
+    url: \${{ steps.deploy.outputs.url }}
+    
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Deploy to staging
+      if: github.ref == 'refs/heads/develop'
+      uses: ./.github/actions/deploy
+      with:
+        environment: staging
+        api-key: \${{ secrets.STAGING_API_KEY }}
+        
+    - name: Deploy to production
+      if: github.ref == 'refs/heads/main'
+      uses: ./.github/actions/deploy
+      with:
+        environment: production
+        api-key: \${{ secrets.PRODUCTION_API_KEY }}
+        
+    - name: Run smoke tests
+      run: npm run test:smoke -- --url=\${{ steps.deploy.outputs.url }}
+      
+    - name: Notify team
+      if: failure()
+      uses: ./.github/actions/notify-slack
+      with:
+        webhook: \${{ secrets.SLACK_WEBHOOK }}
+        message: "Deployment to \${{ github.ref_name }} failed 🚨"`}
+/>
+
+## Monitoring and Observability
+
+### Test Analytics
+
+Track test performance and reliability:
+
+<TestAnalytics
+  title="Test Performance Metrics"
+  metrics={[
+    {
+      name: "Test Suite Duration",
+      current: "8m 32s",
+      trend: -5,
+      target: "< 10m"
+    },
+    {
+      name: "Flaky Test Rate",
+      current: "2.1%", 
+      trend: -12,
+      target: "< 3%"
+    },
+    {
+      name: "Coverage Trend",
+      current: "85.2%",
+      trend: +2,
+      target: "> 80%"
+    },
+    {
+      name: "Pipeline Success Rate",
+      current: "94.8%",
+      trend: +1,
+      target: "> 95%"
+    }
+  ]}
+/>
+
+### Notification Setup
+
+Get notified about test failures and deployments:
+
+<CodeDemo
+  title="Notification Configuration"
+  language="yaml"
+  runnable={false}
+  code={`# Slack notification action
+- name: Notify on failure
+  if: failure()
+  uses: 8398a7/action-slack@v3
+  with:
+    status: \${{ job.status }}
+    channel: '#qa-alerts'
+    webhook_url: \${{ secrets.SLACK_WEBHOOK }}
+    fields: |
+      {
+        "blocks": [
+          {
+            "type": "section",
+            "text": {
+              "type": "mrkdwn",
+              "text": "🚨 *Test Suite Failed*\\n*Repository:* \${{ github.repository }}\\n*Branch:* \${{ github.ref_name }}\\n*Commit:* \${{ github.sha }}\\n*Author:* \${{ github.actor }}"
+            }
+          },
+          {
+            "type": "actions",
+            "elements": [
+              {
+                "type": "button",
+                "text": {
+                  "type": "plain_text",
+                  "text": "View Logs"
+                },
+                "url": "\${{ github.server_url }}/\${{ github.repository }}/actions/runs/\${{ github.run_id }}"
+              }
+            ]
+          }
+        ]
+      }
+
+# Email notification for critical failures
+- name: Send email on critical failure
+  if: failure() && github.ref == 'refs/heads/main'
+  uses: dawidd6/action-send-mail@v3
+  with:
+    server_address: smtp.gmail.com
+    server_port: 587
+    username: \${{ secrets.EMAIL_USERNAME }}
+    password: \${{ secrets.EMAIL_PASSWORD }}
+    subject: "CRITICAL: Production pipeline failed"
+    body: |
+      Production pipeline failed for commit \${{ github.sha }}
+      
+      Repository: \${{ github.repository }}
+      Author: \${{ github.actor }}
+      
+      View logs: \${{ github.server_url }}/\${{ github.repository }}/actions/runs/\${{ github.run_id }}
+    to: ops-team@company.com`}
+/>
+
+## Platform-Specific Configurations
+
+### GitLab CI
+
+<CodeDemo
+  title="GitLab CI Configuration"
+  language="yaml"
+  runnable={false}
+  code={`# .gitlab-ci.yml
+stages:
+  - prepare
+  - test
+  - quality
+  - deploy
+
+variables:
+  NODE_VERSION: "20"
+  POSTGRES_DB: testdb
+  POSTGRES_USER: testuser
+  POSTGRES_PASSWORD: testpass
+
+cache:
+  paths:
+    - node_modules/
+    - .npm/
+
+install:
+  stage: prepare
+  image: node:\$NODE_VERSION
+  script:
+    - npm ci --cache .npm --prefer-offline
+  artifacts:
+    paths:
+      - node_modules/
+    expire_in: 1 hour
+
+test:unit:
+  stage: test
+  image: node:\$NODE_VERSION
+  script:
+    - npm run test:unit -- --coverage
+  coverage: '/Lines\\s*:\\s*(\\d+\\.?\\d*)%/'
+  artifacts:
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura-coverage.xml
+      junit: junit.xml
+    paths:
+      - coverage/
+
+test:e2e:
+  stage: test
+  image: mcr.microsoft.com/playwright:v1.40.0-focal
+  services:
+    - postgres:15
+  script:
+    - npm install
+    - npx playwright install
+    - npm run test:e2e
+  artifacts:
+    when: always
+    paths:
+      - playwright-report/
+      - test-results/
+
+quality:
+  stage: quality
+  image: node:\$NODE_VERSION
+  script:
+    - npm run lint
+    - npm run type-check
+  rules:
+    - if: \$CI_MERGE_REQUEST_ID
+
+deploy:staging:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - apk add --no-cache curl
+    - curl -X POST \$STAGING_DEPLOY_WEBHOOK
+  environment:
+    name: staging
+    url: https://staging.example.com
+  rules:
+    - if: \$CI_COMMIT_BRANCH == "develop"`}
+/>
+
+### Jenkins Pipeline
+
+<CodeDemo
+  title="Jenkins Pipeline (Jenkinsfile)"
+  language="groovy"
+  runnable={false}
+  code={`// Jenkinsfile
+pipeline {
+    agent any
+    
+    tools {
+        nodejs "NodeJS-20"
+    }
+    
+    environment {
+        CI = 'true'
+        NODE_ENV = 'test'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Install Dependencies') {
+            steps {
+                sh 'npm ci'
+            }
+        }
+        
+        stage('Parallel Tests') {
+            parallel {
+                stage('Unit Tests') {
+                    steps {
+                        sh 'npm run test:unit -- --coverage'
+                    }
+                    post {
+                        always {
+                            publishTestResults testResultsPattern: 'junit.xml'
+                            publishCoverageReport sourceFileResolver: sourceFiles('STORE_LAST_BUILD'), adapters: [
+                                coberturaAdapter('coverage/cobertura-coverage.xml')
+                            ]
+                        }
+                    }
+                }
+                
+                stage('E2E Tests') {
+                    steps {
+                        sh 'npx playwright install'
+                        sh 'npm run test:e2e'
+                    }
+                    post {
+                        always {
+                            publishHTML([
+                                allowMissing: false,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: 'playwright-report',
+                                reportFiles: 'index.html',
+                                reportName: 'Playwright Report'
+                            ])
+                        }
+                    }
+                }
+                
+                stage('Linting') {
+                    steps {
+                        sh 'npm run lint'
+                    }
+                }
+            }
+        }
+        
+        stage('Quality Gate') {
+            steps {
+                script {
+                    def coverage = readJSON file: 'coverage/coverage-summary.json'
+                    def lineCoverage = coverage.total.lines.pct
+                    
+                    if (lineCoverage < 80) {
+                        error("Coverage \${lineCoverage}% is below 80% threshold")
+                    }
+                }
+            }
+        }
+        
+        stage('Deploy') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'develop'
+                }
+            }
+            steps {
+                script {
+                    if (env.BRANCH_NAME == 'main') {
+                        sh 'echo "Deploying to production..."'
+                    } else {
+                        sh 'echo "Deploying to staging..."'
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        failure {
+            emailext (
+                subject: "Build Failed: \${env.JOB_NAME} - \${env.BUILD_NUMBER}",
+                body: "Build failed. Check console output at \${env.BUILD_URL}",
+                to: "\${env.CHANGE_AUTHOR_EMAIL}"
+            )
+        }
+    }
+}`}
+/>
+
+## Troubleshooting
+
+### Common Issues
+
+<TroubleshootingGuide
+  title="CI/CD Troubleshooting"
+  issues={[
+    {
+      problem: "Tests timing out in CI",
+      causes: ["Resource constraints", "Network issues", "Deadlocks"],
+      solutions: [
+        "Increase timeout values",
+        "Use headless browsers", 
+        "Add retry logic",
+        "Check for resource limits"
+      ]
+    },
+    {
+      problem: "Flaky E2E tests",
+      causes: ["Race conditions", "Network delays", "Async issues"],
+      solutions: [
+        "Add explicit waits",
+        "Use deterministic test data",
+        "Implement proper cleanup",
+        "Isolate test dependencies"
+      ]
+    },
+    {
+      problem: "Build cache misses",
+      causes: ["Cache key changes", "File path issues", "Size limits"],
+      solutions: [
+        "Review cache key strategy",
+        "Check file paths",
+        "Monitor cache hit rates",
+        "Use multiple cache layers"
+      ]
+    },
+    {
+      problem: "Security scan failures",
+      causes: ["Vulnerable dependencies", "Exposed secrets", "Misconfigurations"],
+      solutions: [
+        "Update dependencies",
+        "Use secret management",
+        "Review security policies",
+        "Implement security gates"
+      ]
+    }
+  ]}
+/>
+
+### Performance Optimization
+
+<OptimizationChecklist
+  title="CI/CD Performance Optimization"
+  optimizations={[
+    {
+      category: "Parallelization",
+      items: [
+        "Run tests in parallel across multiple agents",
+        "Use matrix builds for different environments",
+        "Split large test suites into smaller chunks",
+        "Parallelize linting and type checking"
+      ]
+    },
+    {
+      category: "Caching",
+      items: [
+        "Cache dependencies (npm, pip, composer)",
+        "Cache build artifacts and Docker layers", 
+        "Cache test results for incremental testing",
+        "Use CDN for static assets"
+      ]
+    },
+    {
+      category: "Resource Management",
+      items: [
+        "Use appropriate machine sizes",
+        "Optimize Docker image layers",
+        "Clean up resources after tests",
+        "Monitor memory and CPU usage"
+      ]
+    },
+    {
+      category: "Test Optimization",
+      items: [
+        "Skip redundant tests on certain changes",
+        "Use test impact analysis",
+        "Implement smart test selection",
+        "Optimize test data and fixtures"
+      ]
+    }
+  ]}
+/>
+
+## Next Steps
+
+- **[Templates](/templates)** - Use pre-configured CI/CD templates
+- **[Monitoring](/monitoring)** - Set up comprehensive monitoring
+- **[Examples](/examples)** - See complete CI/CD examples

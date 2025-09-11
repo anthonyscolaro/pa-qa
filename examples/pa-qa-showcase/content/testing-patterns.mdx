@@ -1,0 +1,555 @@
+---
+title: "Testing Patterns & Strategies"
+description: "Comprehensive guide to testing patterns used in the PA-QA framework"
+category: "patterns"
+order: 2
+---
+
+# Testing Patterns & Strategies
+
+Learn the proven testing patterns that make PA-QA effective across different project types and scales.
+
+## Testing Pyramid
+
+PA-QA follows the modern testing pyramid with emphasis on fast, reliable tests:
+
+<TestingPyramid
+  levels={[
+    {
+      name: "E2E Tests", 
+      percentage: 10,
+      color: "#ef4444",
+      description: "Critical user journeys, cross-browser compatibility",
+      tools: ["Playwright", "Cypress"],
+      examples: ["User login flow", "Payment processing", "Form submissions"]
+    },
+    {
+      name: "Integration Tests",
+      percentage: 20, 
+      color: "#f59e0b",
+      description: "API endpoints, service interactions, database operations",
+      tools: ["MSW", "Test Containers", "httpx-mock"],
+      examples: ["API routes", "Database queries", "External services"]
+    },
+    {
+      name: "Unit Tests",
+      percentage: 70,
+      color: "#10b981", 
+      description: "Pure functions, components, business logic",
+      tools: ["Vitest", "Jest", "PHPUnit", "Pytest"],
+      examples: ["Utility functions", "React components", "Model validation"]
+    }
+  ]}
+/>
+
+## Unit Testing Patterns
+
+### 1. Component Testing (React)
+
+Test components in isolation with comprehensive scenarios:
+
+<CodeDemo
+  title="Button Component Test"
+  language="typescript"
+  runnable={true}
+  code={`import { render, screen, fireEvent } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { Button } from '../Button'
+
+describe('Button Component', () => {
+  it('renders with correct text', () => {
+    render(<Button>Click me</Button>)
+    expect(screen.getByRole('button')).toHaveTextContent('Click me')
+  })
+
+  it('calls onClick handler when clicked', () => {
+    const handleClick = vi.fn()
+    render(<Button onClick={handleClick}>Click me</Button>)
+    
+    fireEvent.click(screen.getByRole('button'))
+    expect(handleClick).toHaveBeenCalledOnce()
+  })
+
+  it('applies correct variant styles', () => {
+    render(<Button variant="primary">Primary</Button>)
+    expect(screen.getByRole('button')).toHaveClass('btn-primary')
+  })
+
+  it('handles disabled state', () => {
+    render(<Button disabled>Disabled</Button>)
+    expect(screen.getByRole('button')).toBeDisabled()
+  })
+})`}
+/>
+
+### 2. Hook Testing
+
+Test custom React hooks using specialized utilities:
+
+<CodeDemo
+  title="useAuth Hook Test"
+  language="typescript"
+  runnable={true}
+  code={`import { renderHook, act } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { useAuth } from '../hooks/useAuth'
+
+describe('useAuth Hook', () => {
+  it('initializes with logged out state', () => {
+    const { result } = renderHook(() => useAuth())
+    
+    expect(result.current.isAuthenticated).toBe(false)
+    expect(result.current.user).toBe(null)
+  })
+
+  it('logs in user successfully', async () => {
+    const { result } = renderHook(() => useAuth())
+    
+    await act(async () => {
+      await result.current.login('user@example.com', 'password')
+    })
+    
+    expect(result.current.isAuthenticated).toBe(true)
+    expect(result.current.user?.email).toBe('user@example.com')
+  })
+})`}
+/>
+
+### 3. API Testing (FastAPI)
+
+Test API endpoints with proper async handling:
+
+<CodeDemo
+  title="FastAPI Endpoint Test"
+  language="python"
+  runnable={true}
+  code={`import pytest
+from httpx import AsyncClient
+from app.main import app
+
+@pytest.mark.asyncio
+async def test_create_user():
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        response = await ac.post(
+            "/users/",
+            json={"email": "test@example.com", "name": "Test User"}
+        )
+    
+    assert response.status_code == 201
+    data = response.json()
+    assert data["email"] == "test@example.com"
+    assert "id" in data
+
+@pytest.mark.asyncio
+async def test_get_user_not_found():
+    async with AsyncClient(app=app, base_url="http://test") as ac:
+        response = await ac.get("/users/999")
+    
+    assert response.status_code == 404
+    assert response.json()["detail"] == "User not found"`}
+/>
+
+## Integration Testing Patterns
+
+### 1. API Mocking with MSW
+
+Mock external APIs for reliable integration tests:
+
+<CodeDemo
+  title="MSW API Mocking"
+  language="typescript"
+  runnable={true}
+  code={`import { http, HttpResponse } from 'msw'
+import { setupServer } from 'msw/node'
+import { beforeAll, afterEach, afterAll } from 'vitest'
+
+// Define mock handlers
+const handlers = [
+  http.get('/api/users/:id', ({ params }) => {
+    const { id } = params
+    return HttpResponse.json({
+      id,
+      name: 'John Doe',
+      email: 'john@example.com'
+    })
+  }),
+
+  http.post('/api/users', async ({ request }) => {
+    const user = await request.json()
+    return HttpResponse.json(
+      { ...user, id: '123' },
+      { status: 201 }
+    )
+  })
+]
+
+// Setup server
+const server = setupServer(...handlers)
+
+beforeAll(() => server.listen())
+afterEach(() => server.resetHandlers())
+afterAll(() => server.close())
+
+// Test using mocked API
+test('fetches user data', async () => {
+  const response = await fetch('/api/users/1')
+  const user = await response.json()
+  
+  expect(user.name).toBe('John Doe')
+})`}
+/>
+
+### 2. Database Testing
+
+Test database operations with proper isolation:
+
+<TabbedCodeDemo
+  title="Database Testing Patterns"
+  tabs={[
+    {
+      label: "FastAPI (SQLAlchemy)",
+      language: "python",
+      code: `import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from app.database import Base, get_db
+from app.models import User
+
+@pytest.fixture
+def db_session():
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(bind=engine)
+    SessionLocal = sessionmaker(bind=engine)
+    session = SessionLocal()
+    
+    yield session
+    
+    session.close()
+
+def test_create_user(db_session):
+    user = User(email="test@example.com", name="Test User")
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+    
+    assert user.id is not None
+    assert user.email == "test@example.com"`
+    },
+    {
+      label: "WordPress (PHPUnit)",
+      language: "php",
+      code: `<?php
+use WP_UnitTestCase;
+
+class UserTest extends WP_UnitTestCase {
+    public function test_create_user() {
+        $user_id = wp_create_user(
+            'testuser', 
+            'password123', 
+            'test@example.com'
+        );
+        
+        $this->assertIsInt($user_id);
+        $this->assertGreaterThan(0, $user_id);
+        
+        $user = get_user_by('id', $user_id);
+        $this->assertEquals('test@example.com', $user->user_email);
+    }
+    
+    public function tearDown(): void {
+        parent::tearDown();
+        // Cleanup is handled by WordPress test framework
+    }
+}`
+    }
+  ]}
+/>
+
+## E2E Testing Patterns
+
+### 1. Page Object Model
+
+Organize E2E tests with reusable page objects:
+
+<CodeDemo
+  title="Page Object Pattern"
+  language="typescript"
+  runnable={false}
+  code={`// pages/LoginPage.ts
+export class LoginPage {
+  constructor(private page: Page) {}
+
+  async navigate() {
+    await this.page.goto('/login')
+  }
+
+  async fillEmail(email: string) {
+    await this.page.fill('[data-testid="email"]', email)
+  }
+
+  async fillPassword(password: string) {
+    await this.page.fill('[data-testid="password"]', password)
+  }
+
+  async submit() {
+    await this.page.click('[data-testid="submit"]')
+  }
+
+  async login(email: string, password: string) {
+    await this.fillEmail(email)
+    await this.fillPassword(password)
+    await this.submit()
+  }
+}
+
+// test file
+test('user can login', async ({ page }) => {
+  const loginPage = new LoginPage(page)
+  
+  await loginPage.navigate()
+  await loginPage.login('user@example.com', 'password')
+  
+  await expect(page).toHaveURL('/dashboard')
+})`}
+/>
+
+### 2. Test Data Management
+
+Handle test data efficiently across environments:
+
+<CodeDemo
+  title="Test Data Factories"
+  language="typescript"
+  runnable={true}
+  code={`// factories/userFactory.ts
+export const createUser = (overrides: Partial<User> = {}): User => ({
+  id: Math.random().toString(36),
+  email: 'user@example.com',
+  name: 'Test User',
+  role: 'user',
+  createdAt: new Date(),
+  ...overrides
+})
+
+export const createAdmin = (overrides: Partial<User> = {}): User =>
+  createUser({ role: 'admin', ...overrides })
+
+// Usage in tests
+test('admin can access admin panel', async ({ page }) => {
+  const admin = createAdmin({ email: 'admin@example.com' })
+  
+  await setupTestUser(admin)
+  await loginAs(page, admin)
+  
+  await expect(page.locator('[data-testid="admin-panel"]')).toBeVisible()
+})`}
+/>
+
+## Performance Testing
+
+### 1. Lighthouse Integration
+
+Automated performance testing with Lighthouse:
+
+<CodeDemo
+  title="Lighthouse Performance Tests"
+  language="typescript"
+  runnable={false}
+  code={`import { test, expect } from '@playwright/test'
+import { playAudit } from 'playwright-lighthouse'
+
+test('homepage performance audit', async ({ page, browserName }) => {
+  await page.goto('/')
+  
+  const audit = await playAudit({
+    page,
+    thresholds: {
+      performance: 90,
+      accessibility: 95,
+      'best-practices': 90,
+      seo: 90,
+      pwa: 50
+    },
+    port: 9222,
+    reports: {
+      formats: {
+        html: true,
+        json: true
+      },
+      name: \`lighthouse-\${browserName}\`
+    }
+  })
+  
+  expect(audit.lhr.categories.performance.score).toBeGreaterThan(0.9)
+})`}
+/>
+
+### 2. Load Testing
+
+Simulate realistic user load:
+
+<CodeDemo
+  title="Locust Load Test"
+  language="python"
+  runnable={false}
+  code={`from locust import HttpUser, task, between
+
+class WebsiteUser(HttpUser):
+    wait_time = between(1, 3)
+    
+    def on_start(self):
+        # Login once per user
+        self.login()
+    
+    def login(self):
+        response = self.client.post("/api/auth/login", json={
+            "email": "user@example.com",
+            "password": "password"
+        })
+        self.token = response.json()["token"]
+        self.client.headers.update({"Authorization": f"Bearer {self.token}"})
+    
+    @task(3)
+    def view_homepage(self):
+        self.client.get("/")
+    
+    @task(2)
+    def view_product(self):
+        self.client.get("/products/1")
+    
+    @task(1)
+    def search(self):
+        self.client.get("/search?q=test")`}
+/>
+
+## Visual Regression Testing
+
+### 1. Screenshot Testing
+
+Catch visual regressions automatically:
+
+<CodeDemo
+  title="Visual Regression Tests"
+  language="typescript"
+  runnable={false}
+  code={`test('homepage visual regression', async ({ page }) => {
+  await page.goto('/')
+  
+  // Wait for all content to load
+  await page.waitForLoadState('networkidle')
+  
+  // Hide dynamic content
+  await page.locator('[data-testid="timestamp"]').evaluate(el => {
+    el.style.visibility = 'hidden'
+  })
+  
+  // Take screenshot
+  await expect(page).toHaveScreenshot('homepage.png')
+})
+
+test('responsive design', async ({ page }) => {
+  const viewports = [
+    { width: 320, height: 568 },   // Mobile
+    { width: 768, height: 1024 },  // Tablet
+    { width: 1920, height: 1080 }  // Desktop
+  ]
+  
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport)
+    await page.goto('/')
+    await expect(page).toHaveScreenshot(\`homepage-\${viewport.width}x\${viewport.height}.png\`)
+  }
+})`}
+/>
+
+## Accessibility Testing
+
+### 1. Automated A11y Testing
+
+Ensure accessibility compliance:
+
+<CodeDemo
+  title="Accessibility Tests"
+  language="typescript"
+  runnable={false}
+  code={`import { test, expect } from '@playwright/test'
+import { injectAxe, checkA11y } from 'axe-playwright'
+
+test('homepage accessibility', async ({ page }) => {
+  await page.goto('/')
+  await injectAxe(page)
+  
+  await checkA11y(page, null, {
+    detailedReport: true,
+    detailedReportOptions: {
+      html: true
+    }
+  })
+})
+
+test('keyboard navigation', async ({ page }) => {
+  await page.goto('/')
+  
+  // Test tab navigation
+  await page.keyboard.press('Tab')
+  const firstFocused = await page.evaluate(() => document.activeElement?.tagName)
+  expect(firstFocused).toBe('A') // Skip link or first interactive element
+  
+  // Test escape key
+  await page.keyboard.press('Escape')
+  // Verify modal closes, menu collapses, etc.
+})`}
+/>
+
+## Test Organization
+
+### 1. Test Structure
+
+Organize tests for maintainability:
+
+<FileTree
+  title="Recommended Test Structure"
+  structure={{
+    "tests/": {
+      "unit/": {
+        "components/": ["Button.test.tsx", "Modal.test.tsx"],
+        "hooks/": ["useAuth.test.tsx", "useApi.test.tsx"],
+        "utils/": ["helpers.test.ts", "validation.test.ts"]
+      },
+      "integration/": {
+        "api/": ["users.test.ts", "auth.test.ts"],
+        "services/": ["payment.test.ts", "email.test.ts"]
+      },
+      "e2e/": {
+        "pages/": ["LoginPage.ts", "DashboardPage.ts"],
+        "flows/": ["auth.spec.ts", "checkout.spec.ts"]
+      },
+      "performance/": ["lighthouse.spec.ts", "load.py"],
+      "visual/": ["regression.spec.ts"],
+      "fixtures/": ["users.json", "products.json"],
+      "setup/": ["test-utils.tsx", "msw-setup.ts"]
+    }
+  }}
+/>
+
+## Best Practices Summary
+
+<ChecklistCard
+  title="Testing Best Practices"
+  items={[
+    { text: "Write tests first (TDD approach)", checked: true },
+    { text: "Keep tests simple and focused", checked: true },
+    { text: "Use descriptive test names", checked: true },
+    { text: "Mock external dependencies", checked: true },
+    { text: "Test behavior, not implementation", checked: true },
+    { text: "Maintain high coverage (>80%)", checked: true },
+    { text: "Run tests in CI/CD pipeline", checked: true },
+    { text: "Review test failures promptly", checked: true }
+  ]}
+/>
+
+## Next Steps
+
+- **[Utilities Guide](/utilities)** - Explore shared testing utilities
+- **[CI/CD Integration](/ci-cd)** - Set up automated testing
+- **[Best Practices](/best-practices)** - Follow proven approaches
